@@ -119,16 +119,37 @@ def public_host_for_notes() -> str:
     return HOST if HOST != "0.0.0.0" else "127.0.0.1"
 
 
+def session_secret() -> bytes:
+    user, password = load_admin_credentials()
+    return f"{user}:{password}:{ADMIN_AUTH_FILE}".encode("utf-8")
+
+
 def make_session() -> str:
-    token = secrets.token_urlsafe(32)
-    SESSIONS[token] = time.time() + SESSION_TTL_SECONDS
+    nonce = secrets.token_urlsafe(24)
+    exp = int(time.time() + SESSION_TTL_SECONDS)
+    payload = f"{exp}.{nonce}"
+    sig = hmac.new(session_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    token = f"{payload}.{sig}"
+    SESSIONS[token] = exp
     return token
 
 
 def session_is_valid(token: str) -> bool:
+    if not token:
+        return False
     exp = SESSIONS.get(token)
     if not exp:
-        return False
+        parts = token.split(".")
+        if len(parts) != 3:
+            return False
+        exp_raw, nonce, sig = parts
+        if not exp_raw.isdigit() or not nonce:
+            return False
+        payload = f"{exp_raw}.{nonce}"
+        expected = hmac.new(session_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return False
+        exp = int(exp_raw)
     if exp < time.time():
         SESSIONS.pop(token, None)
         return False

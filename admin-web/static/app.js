@@ -636,6 +636,10 @@ async function api(path, options = {}) {
   if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
   const res = await fetch(path, { ...options, headers, credentials: "same-origin" });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    window.location.assign("/");
+    throw new Error("unauthorized");
+  }
   if (!res.ok || data.ok === false) throw new Error(data.error || `HTTP ${res.status}`);
   return data.data ?? data;
 }
