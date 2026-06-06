@@ -68,6 +68,8 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `PCATELEGRAM_WEB_ADMIN_USER` | `admin` | Basic Auth login |
 | `PCATELEGRAM_WEB_ADMIN_PASSWORD` | `admin` | web-admin password |
 | `PCATELEGRAM_WEB_WARP_CONFIG` | `/opt/pcatelegram_web/warp.json` | WARP / WARP+ settings |
+| `PCATELEGRAM_WEB_SITE_ROOT` | `/var/www/pcatelegram_web-site` | root публичного HTML-сайта на 80 |
+| `PCATELEGRAM_WEB_NGINX_MASK_CONF` | `/etc/nginx/sites-available/pcatelegram_web-mask` | nginx config сайта на 80 |
 
 ## Поддержать проект
 
@@ -125,6 +127,27 @@ Per-client runtime routing в текущем telemt не включается а
 - После сохранения обновляются `/etc/telemt/config.toml`, `/opt/pcatelegram_web/config.json`, ссылки клиентов и перезапускается `telemt`.
 
 Один `telemt`-инстанс имеет один публичный порт и один сайт маскировки для всех клиентов. Разные порты или разные сайты маскировки на разных клиентов требуют отдельные `telemt` services/configs.
+
+## Свой домен и сайт на 80
+
+Чтобы домен открывал обычный публичный сайт:
+
+1. В панели регистратора домена создай DNS `A` запись: `@` → IP сервера.
+2. Если нужен `www`, создай `A` запись `www` → IP сервера.
+3. Дождись DNS. Обычно от нескольких минут до нескольких часов.
+4. В web-admin открой `Settings` → `Domain and mask site`.
+5. Введи домен без `http://`, например `example.ru`.
+6. Нажми `Install site on 80`.
+
+Если порт `80` свободен, web-admin поставит/настроит nginx и отдаст нейтральный одностраничный HTML-сайт без упоминаний proxy, VPN, MTProxy или PCAtelegram_web. Если порт занят чужим процессом, сохранение будет заблокировано.
+
+Чтобы поставить свой HTML-сайт:
+
+1. В том же блоке выбери `.html` / `.htm` файл.
+2. Нажми `Add HTML site`.
+3. Проверь `http://DOMAIN/`.
+
+Лимит файла: 1 MB. Не клади в HTML секреты, токены, ключи и внутренние ссылки. Кнопка `Remove site` удаляет nginx config сайта с порта `80`, но не трогает `telemt` и ключи клиентов.
 
 ## Ошибки и решения
 

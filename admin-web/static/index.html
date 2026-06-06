@@ -11,7 +11,7 @@
       document.documentElement.dataset.theme = theme;
     }());
   </script>
-  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin28">
+  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin29">
 </head>
 <body>
   <div class="app-shell">
@@ -127,6 +127,32 @@
                 </div>
               </div>
               <div class="service-grid" id="services"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow" data-i18n="siteMaskEyebrow">Public site</p>
+                  <h2 data-i18n="siteMaskTitle">Domain and mask site</h2>
+                </div>
+                <span id="siteMaskStatus" class="status-pill">--</span>
+              </div>
+              <form id="siteMaskForm" class="settings-form">
+                <label>
+                  <span data-i18n="siteMaskDomain">Your domain</span>
+                  <input id="siteMaskDomain" name="domain" autocomplete="off" spellcheck="false" placeholder="example.ru">
+                </label>
+                <p id="siteMaskNote" class="modal-note"></p>
+                <div class="inline-form">
+                  <button type="submit" data-i18n="siteMaskInstall">Install site on 80</button>
+                  <button id="siteMaskRemoveBtn" class="danger" type="button" data-i18n="siteMaskRemove">Remove site</button>
+                </div>
+                <label>
+                  <span data-i18n="siteMaskUpload">Upload your HTML</span>
+                  <input id="siteMaskHtmlFile" type="file" accept=".html,.htm,text/html">
+                </label>
+                <button id="siteMaskUploadBtn" class="soft" type="button" data-i18n="siteMaskUploadBtn">Add HTML site</button>
+              </form>
             </section>
 
             <section class="panel">
@@ -482,6 +508,6 @@
       <button id="qrCopyBtn" type="button" class="soft" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin28" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin29" type="module"></script>
 </body>
 </html>

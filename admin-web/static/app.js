@@ -133,6 +133,21 @@ const i18n = {
     warpPerUserNote: "One-client WARP profile is stored here. If warp-cli is missing, it will be installed on save. Runtime per-client routing needs a dedicated telemt route; global WARP applies to all clients.",
     warpAllNote: "Global WARP applies to all proxy traffic. If warp-cli is missing, it will be installed on save, then connected.",
     savedKey: "saved key",
+    siteMaskEyebrow: "Public site",
+    siteMaskTitle: "Domain and mask site",
+    siteMaskDomain: "Your domain",
+    siteMaskInstall: "Install site on 80",
+    siteMaskRemove: "Remove site",
+    siteMaskUpload: "Upload your HTML",
+    siteMaskUploadBtn: "Add HTML site",
+    siteMaskInstalled: "site installed",
+    siteMaskNotInstalled: "site not installed",
+    siteMaskBusy: "port 80 busy",
+    siteMaskReady: "port 80 ready",
+    siteMaskNote: "A neutral one-page site is served on port 80. It does not mention proxy or VPN. Point the A record to this server first.",
+    siteMaskUploaded: "HTML site uploaded",
+    siteMaskRemoved: "Site removed",
+    siteMaskSaved: "Site installed",
     dashboard: "Dashboard",
     noKeys: "No keys yet",
     noBackups: "No backups yet",
@@ -388,6 +403,21 @@ const i18n = {
     warpPerUserNote: "Профиль WARP для одного клиента сохраняется здесь. Если warp-cli нет, он установится при сохранении. Runtime-маршрут на одного клиента требует отдельный маршрут telemt; global WARP действует на всех клиентов.",
     warpAllNote: "Global WARP применится ко всему proxy-трафику. Если warp-cli нет, он установится при сохранении и затем подключится.",
     savedKey: "ключ сохранён",
+    siteMaskEyebrow: "Публичный сайт",
+    siteMaskTitle: "Домен и сайт маскировки",
+    siteMaskDomain: "Свой домен",
+    siteMaskInstall: "Установить сайт на 80",
+    siteMaskRemove: "Удалить сайт",
+    siteMaskUpload: "Загрузить свой HTML",
+    siteMaskUploadBtn: "Добавить HTML сайт",
+    siteMaskInstalled: "сайт установлен",
+    siteMaskNotInstalled: "сайт не установлен",
+    siteMaskBusy: "порт 80 занят",
+    siteMaskReady: "порт 80 доступен",
+    siteMaskNote: "На порту 80 отдается нейтральный одностраничный сайт. Без упоминаний proxy/VPN. Сначала направьте A-запись домена на этот сервер.",
+    siteMaskUploaded: "HTML сайт загружен",
+    siteMaskRemoved: "Сайт удалён",
+    siteMaskSaved: "Сайт установлен",
     dashboard: "Обзор",
     noKeys: "Ключей пока нет",
     noBackups: "Бекапов пока нет",
@@ -535,6 +565,7 @@ const state = {
   routingDirty: false,
   routingPreviewMap: null,
   warp: null,
+  siteMask: null,
   qrLink: "",
   pendingUsers: new Set(),
   refreshingAll: false,
@@ -689,6 +720,7 @@ function applyI18n() {
   renderBackupSchedule();
   renderRoutingSettings();
   renderWarpSettings();
+  renderSiteMaskSettings();
   updatePageTitle();
   updateAutoRefreshToggle();
 }
@@ -1390,6 +1422,39 @@ function renderWarpSettings() {
     : `${t("warpAllNote")}${statusLine ? ` ${statusLine}` : ""}`;
 }
 
+function siteMaskSummary(payload = {}) {
+  const conflicts = payload.conflicts || [];
+  if (conflicts.length) {
+    return `${t("siteMaskBusy")}: ${conflicts.map((item) => `${item.process} ${item.address}`).join(", ")}`;
+  }
+  const listeners = payload.listeners || [];
+  const listenerText = listeners.length
+    ? listeners.map((item) => `${item.process} ${item.address}`).join(", ")
+    : t("siteMaskReady");
+  const domain = payload.domain || "--";
+  const html = payload.html_exists ? fmtBytes(payload.html_size || 0) : "--";
+  return `${listenerText}. domain: ${domain}. html: ${html}. ${t("siteMaskNote")}`;
+}
+
+function renderSiteMaskSettings(payload = null) {
+  const cfg = payload || state.siteMask || state.overview?.site_mask || {};
+  const domainEl = $("#siteMaskDomain");
+  const statusEl = $("#siteMaskStatus");
+  const noteEl = $("#siteMaskNote");
+  if (!domainEl || !statusEl || !noteEl) return;
+  if (document.activeElement !== domainEl) {
+    domainEl.value = cfg.domain || "";
+  }
+  const conflicts = cfg.conflicts || [];
+  const installed = Boolean(cfg.installed);
+  statusEl.textContent = conflicts.length
+    ? t("siteMaskBusy")
+    : (installed ? t("siteMaskInstalled") : t("siteMaskNotInstalled"));
+  statusEl.className = `status-pill ${conflicts.length ? "health-error" : (installed ? "health-ok" : "")}`;
+  noteEl.textContent = siteMaskSummary(cfg);
+  noteEl.classList.toggle("error", Boolean(conflicts.length));
+}
+
 function renderBackups(backups) {
   const box = $("#backupsList");
   renderBackupSchedule();
@@ -1547,6 +1612,7 @@ async function refreshAll(options = {}) {
     state.backupSchedule = state.overview.backup_schedule || state.backupSchedule;
     state.routing = state.overview.routing || state.routing;
     state.warp = state.overview.warp || state.warp;
+    state.siteMask = state.overview.site_mask || state.siteMask;
     updateLanguageFromOverview(state.overview);
     state.users = await api("/api/users");
     ensureUserTrafficSelection();
@@ -1572,6 +1638,7 @@ async function refreshAll(options = {}) {
     renderUsers();
     renderRoutingSettings();
     renderWarpSettings();
+    renderSiteMaskSettings();
     if (state.page === "traffic") {
       await refreshStats();
     } else if (state.page === "keys") {
@@ -1814,6 +1881,84 @@ async function saveWarpSettings(eventObj) {
     toast(err.message);
   } finally {
     controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function saveSiteMask(eventObj) {
+  eventObj.preventDefault();
+  const form = eventObj.currentTarget;
+  const controls = Array.from(form.querySelectorAll("input, button"));
+  controls.forEach((control) => { control.disabled = true; });
+  try {
+    const data = await api("/api/site/mask", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "install",
+        domain: $("#siteMaskDomain").value.trim().toLowerCase(),
+      }),
+    });
+    state.siteMask = data;
+    renderSiteMaskSettings();
+    addEvent(t("siteMaskSaved"), data.url || data.domain || "80");
+    toast(t("siteMaskSaved"));
+    await refreshAll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function removeSiteMask() {
+  const btn = $("#siteMaskRemoveBtn");
+  if (!window.confirm(t("siteMaskRemove"))) return;
+  btn.disabled = true;
+  try {
+    const data = await api("/api/site/mask", {
+      method: "POST",
+      body: JSON.stringify({ action: "remove" }),
+    });
+    state.siteMask = data;
+    renderSiteMaskSettings();
+    addEvent(t("siteMaskRemoved"), "80");
+    toast(t("siteMaskRemoved"));
+    await refreshAll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function uploadSiteMaskHtml() {
+  const fileEl = $("#siteMaskHtmlFile");
+  const file = fileEl?.files?.[0];
+  if (!file) {
+    toast(t("siteMaskUpload"));
+    return;
+  }
+  const btn = $("#siteMaskUploadBtn");
+  btn.disabled = true;
+  try {
+    const html = await file.text();
+    const data = await api("/api/site/mask", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "upload",
+        domain: $("#siteMaskDomain").value.trim().toLowerCase(),
+        html,
+      }),
+    });
+    state.siteMask = data;
+    fileEl.value = "";
+    renderSiteMaskSettings();
+    addEvent(t("siteMaskUploaded"), file.name);
+    toast(t("siteMaskUploaded"));
+    await refreshAll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -2066,6 +2211,9 @@ $("#routingPort").addEventListener("change", (eventObj) => checkRoutingPort(even
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
 $("#warpUserSelect").addEventListener("change", renderWarpSettings);
+$("#siteMaskForm").addEventListener("submit", saveSiteMask);
+$("#siteMaskRemoveBtn").addEventListener("click", removeSiteMask);
+$("#siteMaskUploadBtn").addEventListener("click", uploadSiteMaskHtml);
 document.addEventListener("focusout", () => {
   setTimeout(runDeferredRefresh, 120);
 });

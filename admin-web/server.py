@@ -48,6 +48,9 @@ SHARED_443_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_SHARED_443", "/opt/pcatelegr
 BACKUP_SCHEDULE_FILE = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_SCHEDULE", "/opt/pcatelegram_web/backup_schedule.json"))
 BACKUP_RESTORE_LOG = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_RESTORE_LOG", "/var/log/pcatelegram_web-restore.log"))
 WARP_CONFIG_FILE = Path(os.getenv("PCATELEGRAM_WEB_WARP_CONFIG", "/opt/pcatelegram_web/warp.json"))
+WEBSITE_ROOT = Path(os.getenv("PCATELEGRAM_WEB_SITE_ROOT", "/var/www/pcatelegram_web-site"))
+NGINX_MASK_CONF = Path(os.getenv("PCATELEGRAM_WEB_NGINX_MASK_CONF", "/etc/nginx/sites-available/pcatelegram_web-mask"))
+NGINX_MASK_LINK = Path(os.getenv("PCATELEGRAM_WEB_NGINX_MASK_LINK", "/etc/nginx/sites-enabled/pcatelegram_web-mask"))
 
 HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "0.0.0.0")
 PORT = int(os.getenv("PCATELEGRAM_WEB_ADMIN_PORT", "1984"))
@@ -1432,6 +1435,197 @@ def site_status(config: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
 
+def default_mask_html(domain: str = "") -> str:
+    title = "Информационный центр"
+    subtitle = "Полезные материалы, новости и практические заметки для повседневной работы."
+    host = domain or "local"
+    return f"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <style>
+    :root {{ color-scheme: light; --text:#1f2937; --muted:#667085; --line:#d8e0ec; --bg:#f5f7fb; --card:#ffffff; --blue:#2563eb; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; min-height:100vh; font-family: Arial, sans-serif; background:var(--bg); color:var(--text); }}
+    header, main, footer {{ width:min(980px, calc(100% - 32px)); margin:auto; }}
+    header {{ padding:42px 0 22px; display:flex; justify-content:space-between; gap:20px; align-items:center; border-bottom:1px solid var(--line); }}
+    .brand {{ font-size:22px; font-weight:800; }}
+    nav {{ color:var(--muted); font-size:14px; }}
+    .hero {{ padding:64px 0 44px; }}
+    h1 {{ margin:0 0 18px; font-size:clamp(34px, 6vw, 64px); line-height:1; letter-spacing:0; }}
+    p {{ margin:0; color:var(--muted); font-size:20px; line-height:1.6; max-width:720px; }}
+    .grid {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin:22px 0 70px; }}
+    article {{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; box-shadow:0 18px 45px rgba(15,23,42,.08); }}
+    h2 {{ margin:0 0 10px; font-size:20px; }}
+    article p {{ font-size:15px; line-height:1.5; }}
+    footer {{ padding:24px 0 36px; color:var(--muted); font-size:14px; border-top:1px solid var(--line); }}
+    @media (max-width:760px) {{ header {{ align-items:flex-start; flex-direction:column; }} .grid {{ grid-template-columns:1fr; }} }}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">{title}</div>
+    <nav>{host}</nav>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Коротко. Понятно. По делу.</h1>
+      <p>{subtitle}</p>
+    </section>
+    <section class="grid" aria-label="Разделы">
+      <article><h2>Материалы</h2><p>Подборки и инструкции для людей, которым нужен быстрый ответ без лишнего шума.</p></article>
+      <article><h2>Обновления</h2><p>Заметки о полезных изменениях, сервисах и рабочих сценариях.</p></article>
+      <article><h2>Контакты</h2><p>Предложения и вопросы можно отправить владельцу сайта удобным способом.</p></article>
+    </section>
+  </main>
+  <footer>© {time.strftime("%Y")} {title}</footer>
+</body>
+</html>
+"""
+
+
+def write_site_domain(domain: str) -> None:
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    if not isinstance(config, dict):
+        config = {}
+    config["domain"] = domain
+    config["site_domain"] = domain
+    config["site_updated_at"] = utc_now()
+    save_json(PCATELEGRAM_WEB_CONFIG, config)
+
+
+def site_port80_conflicts() -> list[dict[str, Any]]:
+    listeners, _ = collect_port_listeners(80)
+    return [
+        item for item in listeners
+        if "nginx" not in str(item.get("process", "")).lower()
+    ]
+
+
+def site_mask_status() -> dict[str, Any]:
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    if not isinstance(config, dict):
+        config = {}
+    domain = str(config.get("site_domain") or config.get("domain") or "").strip()
+    index = WEBSITE_ROOT / "index.html"
+    listeners, errors = collect_port_listeners(80)
+    installed = NGINX_MASK_LINK.exists() and index.exists()
+    return {
+        "domain": domain,
+        "url": f"http://{domain}/" if domain else "",
+        "installed": installed,
+        "nginx": service_status("nginx"),
+        "port": 80,
+        "listeners": listeners,
+        "conflicts": site_port80_conflicts(),
+        "html_exists": index.exists(),
+        "html_size": index.stat().st_size if index.exists() else 0,
+        "html_mtime": int(index.stat().st_mtime) if index.exists() else 0,
+        "ok": not errors,
+        "error": "; ".join(errors[:2]),
+        "checked_at": int(time.time()),
+    }
+
+
+def write_mask_nginx_config(domain: str) -> None:
+    server_name = domain if domain else "_"
+    NGINX_MASK_CONF.parent.mkdir(parents=True, exist_ok=True)
+    NGINX_MASK_LINK.parent.mkdir(parents=True, exist_ok=True)
+    conf = f"""# PCAtelegram_web public mask site on port 80
+server {{
+    listen 80;
+    listen [::]:80;
+    server_name {server_name};
+
+    root {WEBSITE_ROOT};
+    index index.html;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location / {{
+        try_files $uri $uri/ /index.html;
+    }}
+
+    location ~ /\\. {{
+        deny all;
+    }}
+}}
+"""
+    tmp = NGINX_MASK_CONF.with_suffix(".tmp")
+    tmp.write_text(conf, encoding="utf-8")
+    os.chmod(tmp, 0o644)
+    tmp.replace(NGINX_MASK_CONF)
+    try:
+        Path("/etc/nginx/sites-enabled/default").unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        pass
+    if NGINX_MASK_LINK.exists() or NGINX_MASK_LINK.is_symlink():
+        NGINX_MASK_LINK.unlink()
+    NGINX_MASK_LINK.symlink_to(NGINX_MASK_CONF)
+
+
+def install_mask_site(domain: str, html: str = "") -> dict[str, Any]:
+    if domain and not HOST_RE.match(domain):
+        raise ValueError("domain must be a valid domain or empty")
+    conflicts = site_port80_conflicts()
+    if conflicts:
+        names = ", ".join(f"{item.get('process')} {item.get('address')}" for item in conflicts[:3])
+        raise RuntimeError(f"port 80 is busy: {names}")
+    if html and len(html.encode("utf-8")) > 1024 * 1024:
+        raise ValueError("html file is too large")
+    if not html:
+        html = default_mask_html(domain)
+    WEBSITE_ROOT.mkdir(parents=True, exist_ok=True)
+    index = WEBSITE_ROOT / "index.html"
+    tmp = index.with_suffix(".tmp")
+    tmp.write_text(html, encoding="utf-8")
+    os.chmod(tmp, 0o644)
+    tmp.replace(index)
+    write_site_domain(domain)
+    script = """
+set -euo pipefail
+source /opt/pcatelegram_web/lib/common.sh
+source /opt/pcatelegram_web/lib/i18n.sh
+source /opt/pcatelegram_web/lib/website.sh
+load_language "$(detect_language 2>/dev/null || echo en)" 2>/dev/null || true
+ensure_deps >/tmp/pcatelegram_web-site-ensure-deps.log 2>&1 || true
+install_nginx >/tmp/pcatelegram_web-site-nginx-install.log 2>&1
+"""
+    code, _, stderr = run_bash_env(script, timeout=180)
+    if code != 0:
+        raise RuntimeError((stderr.strip().splitlines()[-1:] or ["nginx install failed"])[0])
+    write_mask_nginx_config(domain)
+    code, _, stderr = run(["nginx", "-t"], timeout=10)
+    if code != 0:
+        raise RuntimeError(stderr.strip() or "nginx config test failed")
+    code, _, stderr = run(["systemctl", "restart", "nginx"], timeout=30)
+    if code != 0:
+        raise RuntimeError(stderr.strip() or "nginx restart failed")
+    return site_mask_status()
+
+
+def remove_mask_site() -> dict[str, Any]:
+    if NGINX_MASK_LINK.exists() or NGINX_MASK_LINK.is_symlink():
+        NGINX_MASK_LINK.unlink()
+    if NGINX_MASK_CONF.exists():
+        NGINX_MASK_CONF.unlink()
+    code, _, _ = run(["nginx", "-t"], timeout=10)
+    if code == 0:
+        run(["systemctl", "reload", "nginx"], timeout=15)
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    if isinstance(config, dict):
+        config["site_enabled"] = False
+        config["site_updated_at"] = utc_now()
+        save_json(PCATELEGRAM_WEB_CONFIG, config)
+    return site_mask_status()
+
+
 def load_stats_history(limit: int | None = 240) -> list[dict[str, int]]:
     if not HISTORY_FILE.exists():
         return []
@@ -1957,6 +2151,7 @@ def overview_payload() -> dict[str, Any]:
         "admin_bind": {"host": HOST, "port": PORT},
         "config": public_config(config),
         "site_status": site_status(config),
+        "site_mask": site_mask_status(),
         "users_count": len(users),
         "services": services,
         "port_map": port_status(int(config.get("port") or read_telemt_port() or 443)),
@@ -2194,6 +2389,8 @@ class AdminHandler(BaseHTTPRequestHandler):
             })
         elif path == "/api/site/check":
             self.send_json({"ok": True, "data": site_status()})
+        elif path == "/api/site/mask":
+            self.send_json({"ok": True, "data": site_mask_status()})
         elif path == "/api/logs":
             qs = urllib.parse.parse_qs(parsed.query)
             service = qs.get("service", ["telemt"])[0]
@@ -2250,6 +2447,28 @@ class AdminHandler(BaseHTTPRequestHandler):
                 return
             except Exception as exc:
                 self.send_error_json(500, f"failed to save routing: {exc}")
+                return
+            self.send_json({"ok": True, "data": payload})
+        elif path == "/api/site/mask":
+            action = str(body.get("action") or "install").strip().lower()
+            domain = str(body.get("domain") or "").strip().lower()
+            html = str(body.get("html") or "")
+            try:
+                if action in {"install", "upload"}:
+                    payload = install_mask_site(domain, html)
+                elif action == "remove":
+                    payload = remove_mask_site()
+                else:
+                    self.send_error_json(400, "unsupported site action")
+                    return
+            except ValueError as exc:
+                self.send_error_json(400, str(exc))
+                return
+            except RuntimeError as exc:
+                self.send_error_json(409, str(exc))
+                return
+            except Exception as exc:
+                self.send_error_json(500, f"failed to manage site: {exc}")
                 return
             self.send_json({"ok": True, "data": payload})
         elif path.startswith("/api/users/") and path.endswith("/max-ips"):
