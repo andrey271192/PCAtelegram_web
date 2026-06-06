@@ -106,6 +106,22 @@ const i18n = {
     authNewPassword: "New password",
     authSave: "Save login",
     authSaved: "Login updated",
+    warpEyebrow: "Routing",
+    warpTitle: "WARP / WARP+",
+    warpMode: "Mode",
+    warpOff: "Off",
+    warpScope: "Scope",
+    warpAllClients: "All clients",
+    warpOneClient: "One client",
+    warpClient: "Client",
+    warpLicense: "WARP+ key",
+    warpSave: "Save WARP",
+    warpSaved: "WARP settings saved",
+    warpInstalled: "warp-cli installed",
+    warpNotInstalled: "warp-cli not installed",
+    warpPerUserNote: "One-client WARP profile is stored here. Runtime per-client routing needs a dedicated telemt route; global WARP applies to all clients.",
+    warpAllNote: "Global WARP applies to all proxy traffic when warp-cli is installed and connected.",
+    savedKey: "saved key",
     dashboard: "Dashboard",
     noKeys: "No keys yet",
     noBackups: "No backups yet",
@@ -334,6 +350,22 @@ const i18n = {
     authNewPassword: "Новый пароль",
     authSave: "Сохранить вход",
     authSaved: "Данные входа обновлены",
+    warpEyebrow: "Маршрутизация",
+    warpTitle: "WARP / WARP+",
+    warpMode: "Режим",
+    warpOff: "Выкл",
+    warpScope: "Область",
+    warpAllClients: "Все клиенты",
+    warpOneClient: "Один клиент",
+    warpClient: "Клиент",
+    warpLicense: "Ключ WARP+",
+    warpSave: "Сохранить WARP",
+    warpSaved: "Настройки WARP сохранены",
+    warpInstalled: "warp-cli установлен",
+    warpNotInstalled: "warp-cli не установлен",
+    warpPerUserNote: "Профиль WARP для одного клиента сохраняется здесь. Runtime-маршрут на одного клиента требует отдельный маршрут telemt; global WARP действует на всех клиентов.",
+    warpAllNote: "Global WARP применится ко всему proxy-трафику, если warp-cli установлен и подключён.",
+    savedKey: "ключ сохранён",
     dashboard: "Обзор",
     noKeys: "Ключей пока нет",
     noBackups: "Бекапов пока нет",
@@ -477,6 +509,7 @@ const state = {
   userTraffic: null,
   userTrafficLoading: false,
   backupSchedule: null,
+  warp: null,
   qrLink: "",
   pendingUsers: new Set(),
   refreshingAll: false,
@@ -605,6 +638,7 @@ function applyI18n() {
   updateTrafficControls();
   updateUserTrafficControls();
   renderBackupSchedule();
+  renderWarpSettings();
   updatePageTitle();
   updateAutoRefreshToggle();
 }
@@ -1218,6 +1252,8 @@ function renderUsers() {
     const trafficTotal = Number(traffic.total_octets) ? fmtBytes(traffic.total_octets) : "--";
     const activeIps = Number(traffic.active_unique_ips) || 0;
     const maxUniqueIps = Number.isFinite(Number(user.max_unique_ips)) ? Math.max(0, Number(user.max_unique_ips)) : 0;
+    const warp = user.warp || {};
+    const warpLabel = warp.mode === "warp_plus" ? "WARP+" : (warp.mode === "warp" ? "WARP" : "");
     return `
     <article class="key-card ${user.enabled ? "" : "disabled-row"} ${pending ? "pending-row" : ""} ${selected ? "selected-row" : ""}" data-select-user-traffic="${escapeAttr(user.name)}" aria-selected="${selected ? "true" : "false"}">
       <div class="key-card-user">
@@ -1232,6 +1268,7 @@ function renderUsers() {
           </label>
           <strong class="${user.enabled ? "state-on" : "state-off"}">${escapeHtml(pending ? t("applying") : (user.enabled ? t("enabled") : t("disabled")))}</strong>
         </div>
+        ${warpLabel ? `<span class="warp-badge ${warp.enabled ? "active" : ""}" title="${escapeAttr(warp.source || "")}">${escapeHtml(warpLabel)}</span>` : ""}
       </div>
       <div class="key-card-secret">
         <span class="field-label">${escapeHtml(t("tableSecret"))}</span>
@@ -1270,6 +1307,30 @@ function renderUsers() {
       </div>
     </article>
   `; }).join("");
+}
+
+function renderWarpSettings() {
+  const cfg = state.warp || state.overview?.warp || {};
+  const runtime = cfg.runtime || {};
+  const modeEl = $("#warpMode");
+  const scopeEl = $("#warpScope");
+  const userEl = $("#warpUserSelect");
+  if (!modeEl || !scopeEl || !userEl) return;
+  modeEl.value = cfg.mode || "off";
+  scopeEl.value = cfg.scope || "all";
+  userEl.innerHTML = state.users.map((user) => `<option value="${escapeAttr(user.name)}">${escapeHtml(user.name)}</option>`).join("");
+  userEl.value = cfg.user && state.users.some((user) => user.name === cfg.user) ? cfg.user : (state.users[0]?.name || "");
+  $("#warpUserRow").hidden = scopeEl.value !== "user";
+  const mask = scopeEl.value === "user"
+    ? (cfg.users?.[userEl.value]?.license_mask || "")
+    : (cfg.license_mask || "");
+  $("#warpLicenseKey").placeholder = mask ? `${t("savedKey")}: ${mask}` : "optional";
+  $("#warpStatus").textContent = runtime.installed ? t("warpInstalled") : t("warpNotInstalled");
+  $("#warpStatus").classList.toggle("ok", Boolean(runtime.installed));
+  const statusLine = runtime.status ? ` ${runtime.status}` : "";
+  $("#warpRuntimeNote").textContent = scopeEl.value === "user"
+    ? `${t("warpPerUserNote")}${statusLine ? ` ${statusLine}` : ""}`
+    : `${t("warpAllNote")}${statusLine ? ` ${statusLine}` : ""}`;
 }
 
 function renderBackups(backups) {
@@ -1346,6 +1407,7 @@ async function refreshAll() {
   try {
     state.overview = await api("/api/overview");
     state.backupSchedule = state.overview.backup_schedule || state.backupSchedule;
+    state.warp = state.overview.warp || state.warp;
     updateLanguageFromOverview(state.overview);
     state.users = await api("/api/users");
     ensureUserTrafficSelection();
@@ -1365,6 +1427,7 @@ async function refreshAll() {
     }
     renderOverview();
     renderUsers();
+    renderWarpSettings();
     if (state.page === "traffic") {
       await refreshStats();
     } else if (state.page === "keys") {
@@ -1515,6 +1578,36 @@ async function setUserMaxUniqueIps(name, value) {
     addEvent(t("ipLimitSaved"), `${name}: ${data.max_unique_ips}`);
     toast(t("changesApplyInBackground"));
     setTimeout(() => refreshAll().catch((err) => toast(err.message)), 1400);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function saveWarpSettings(eventObj) {
+  eventObj.preventDefault();
+  const form = eventObj.currentTarget;
+  const controls = Array.from(form.querySelectorAll("input, select, button"));
+  controls.forEach((control) => { control.disabled = true; });
+  try {
+    const payload = {
+      mode: $("#warpMode").value,
+      scope: $("#warpScope").value,
+      user: $("#warpUserSelect").value,
+      license_key: $("#warpLicenseKey").value.trim(),
+    };
+    const data = await api("/api/warp", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.warp = data.config;
+    $("#warpLicenseKey").value = "";
+    renderWarpSettings();
+    const warning = data.apply?.warnings?.[0] || "";
+    toast(warning || t("warpSaved"));
+    addEvent(t("warpSaved"), payload.scope === "user" ? payload.user : payload.mode);
+    await refreshAll();
   } catch (err) {
     toast(err.message);
   } finally {
@@ -1760,6 +1853,9 @@ $("#loadLogsBtn").addEventListener("click", loadLogs);
 $("#repairStatsBtn").addEventListener("click", repairStats);
 $("#collectStatsBtn").addEventListener("click", collectStats);
 $("#authSettingsForm").addEventListener("submit", updateAuthSettings);
+$("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
+$("#warpScope").addEventListener("change", renderWarpSettings);
+$("#warpUserSelect").addEventListener("change", renderWarpSettings);
 window.addEventListener("hashchange", () => setPage((location.hash || "#dashboard").slice(1), false));
 
 setPage((location.hash || "#dashboard").slice(1), false);

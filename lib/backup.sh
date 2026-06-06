@@ -44,6 +44,9 @@ create_backup() {
     if [ -f "$PCATELEGRAM_WEB_DIR/backup_schedule.json" ]; then
         cp "$PCATELEGRAM_WEB_DIR/backup_schedule.json" "$tmp_dir/backup_schedule.json" 2>/dev/null
     fi
+    if [ -f "$PCATELEGRAM_WEB_DIR/warp.json" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/warp.json" "$tmp_dir/warp.json" 2>/dev/null
+    fi
 
     # Language marker (i18n)
     if [ -f "$PCATELEGRAM_WEB_DIR/.language" ]; then
@@ -247,6 +250,9 @@ restore_backup() {
     if [ ! -f "$backup_dir/disabled_users.json" ] && [ -f "$tmp_dir/opt/pcatelegram_web/disabled_users.json" ]; then
         cp "$tmp_dir/opt/pcatelegram_web/disabled_users.json" "$backup_dir/disabled_users.json" 2>/dev/null || true
     fi
+    if [ ! -f "$backup_dir/warp.json" ] && [ -f "$tmp_dir/opt/pcatelegram_web/warp.json" ]; then
+        cp "$tmp_dir/opt/pcatelegram_web/warp.json" "$backup_dir/warp.json" 2>/dev/null || true
+    fi
 
     # Проверяем метаданные
     if [ -f "$backup_dir/metadata.json" ]; then
@@ -302,6 +308,11 @@ restore_backup() {
                 off|daily|weekly|monthly) set_backup_schedule "$restored_schedule" >/dev/null 2>&1 || true ;;
             esac
         fi
+    fi
+    if [ -f "$backup_dir/warp.json" ]; then
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$backup_dir/warp.json" "$PCATELEGRAM_WEB_DIR/warp.json" 2>/dev/null
+        chmod 600 "$PCATELEGRAM_WEB_DIR/warp.json" 2>/dev/null || true
     fi
 
     # Восстанавливаем language marker (i18n)

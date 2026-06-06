@@ -56,6 +56,7 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `PCATELEGRAM_WEB_ADMIN_PORT` | `1984` | port web-admin |
 | `PCATELEGRAM_WEB_ADMIN_USER` | `admin` | Basic Auth login |
 | `PCATELEGRAM_WEB_ADMIN_PASSWORD` | `admin` | web-admin password |
+| `PCATELEGRAM_WEB_WARP_CONFIG` | `/opt/pcatelegram_web/warp.json` | WARP / WARP+ settings |
 
 ## Поддержка
 
@@ -85,6 +86,22 @@ PCATELEGRAM_WEB_ADMIN_PASSWORD='strong-password' bash bootstrap.sh
 ```
 
 Без HTTPS Basic Auth гонит пароль открытым текстом. Для постоянного доступа лучше reverse proxy с TLS, но порт `1984` открыт по умолчанию по запросу проекта.
+
+## WARP / WARP+
+
+В web-admin Settings есть блок `WARP / WARP+`:
+
+- `Off` — WARP выключен.
+- `WARP` — обычный Cloudflare WARP.
+- `WARP+` — WARP+ с license key.
+- `All clients` — применяет WARP на весь proxy-трафик через `warp-cli`, если Cloudflare WARP установлен на сервере.
+- `One client` — сохраняет WARP/WARP+ профиль и key для выбранного клиента в `/opt/pcatelegram_web/warp.json`.
+
+WARP+ key не отдается в API целиком: web показывает только маску. Файл `warp.json` хранится с правами `0600` и входит в backup.
+
+Для реального global WARP на сервере нужен установленный `cloudflare-warp` и доступная команда `warp-cli`. По документации Cloudflare: регистрация `warp-cli registration new`, WARP+ key `warp-cli registration license <KEY>`, подключение `warp-cli connect`.
+
+Per-client runtime routing в текущем telemt не включается автоматически: публичные параметры telemt дают users/limits/quotas/ad tags, но не документируют привязку upstream к конкретному user. Для настоящего WARP только одному клиенту нужен отдельный telemt route/service или upstream-схема.
 
 ## Проверки
 

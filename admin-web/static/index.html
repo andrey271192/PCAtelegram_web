@@ -363,6 +363,43 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
+                  <p class="eyebrow" data-i18n="warpEyebrow">Routing</p>
+                  <h2 data-i18n="warpTitle">WARP / WARP+</h2>
+                </div>
+                <span id="warpStatus" class="status-pill">--</span>
+              </div>
+              <form id="warpSettingsForm" class="settings-form">
+                <label>
+                  <span data-i18n="warpMode">Mode</span>
+                  <select name="mode" id="warpMode">
+                    <option value="off" data-i18n="warpOff">Off</option>
+                    <option value="warp">WARP</option>
+                    <option value="warp_plus">WARP+</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="warpScope">Scope</span>
+                  <select name="scope" id="warpScope">
+                    <option value="all" data-i18n="warpAllClients">All clients</option>
+                    <option value="user" data-i18n="warpOneClient">One client</option>
+                  </select>
+                </label>
+                <label id="warpUserRow">
+                  <span data-i18n="warpClient">Client</span>
+                  <select name="user" id="warpUserSelect"></select>
+                </label>
+                <label>
+                  <span data-i18n="warpLicense">WARP+ key</span>
+                  <input name="license_key" id="warpLicenseKey" autocomplete="off" spellcheck="false" placeholder="optional">
+                </label>
+                <p id="warpRuntimeNote" class="modal-note"></p>
+                <button type="submit" data-i18n="warpSave">Save WARP</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
                   <p class="eyebrow" data-i18n="configEyebrow">Config</p>
                   <h2 data-i18n="configTitle">Installation state</h2>
                 </div>
@@ -403,6 +440,6 @@
       <button id="qrCopyBtn" type="button" class="soft" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin20" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin21" type="module"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ import os
 import re
 import secrets
 import shlex
+import shutil
 import socket
 import subprocess
 import time
@@ -46,6 +47,7 @@ USER_LOCK_FILE = Path(os.getenv("PCATELEGRAM_WEB_USER_LOCK", "/run/pcatelegram_w
 SHARED_443_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_SHARED_443", "/opt/pcatelegram_web/shared-443.json"))
 BACKUP_SCHEDULE_FILE = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_SCHEDULE", "/opt/pcatelegram_web/backup_schedule.json"))
 BACKUP_RESTORE_LOG = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_RESTORE_LOG", "/var/log/pcatelegram_web-restore.log"))
+WARP_CONFIG_FILE = Path(os.getenv("PCATELEGRAM_WEB_WARP_CONFIG", "/opt/pcatelegram_web/warp.json"))
 
 HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "0.0.0.0")
 PORT = int(os.getenv("PCATELEGRAM_WEB_ADMIN_PORT", "1984"))
@@ -471,6 +473,176 @@ def read_toml_int_table(table: str) -> dict[str, int]:
 
 def read_user_max_unique_ips() -> dict[str, int]:
     return read_toml_int_table("access.user_max_unique_ips")
+
+
+def mask_secret(value: str) -> str:
+    clean = str(value or "").strip()
+    if not clean:
+        return ""
+    if len(clean) <= 8:
+        return "••••"
+    return f"{clean[:4]}••••{clean[-4:]}"
+
+
+def read_warp_config() -> dict[str, Any]:
+    raw = load_json(WARP_CONFIG_FILE, {}) or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    users = raw.get("users") if isinstance(raw.get("users"), dict) else {}
+    clean_users: dict[str, dict[str, str]] = {}
+    for name, item in users.items():
+        name_s = str(name or "").strip()
+        if not USER_RE.match(name_s) or not isinstance(item, dict):
+            continue
+        mode = str(item.get("mode") or "off").strip().lower()
+        if mode not in {"off", "warp", "warp_plus"}:
+            mode = "off"
+        clean_users[name_s] = {
+            "mode": mode,
+            "license_key": str(item.get("license_key") or "").strip(),
+            "updated_at": str(item.get("updated_at") or ""),
+        }
+    mode = str(raw.get("mode") or "off").strip().lower()
+    if mode not in {"off", "warp", "warp_plus"}:
+        mode = "off"
+    scope = str(raw.get("scope") or "all").strip().lower()
+    if scope not in {"all", "user"}:
+        scope = "all"
+    user = str(raw.get("user") or "").strip()
+    if user and not USER_RE.match(user):
+        user = ""
+    return {
+        "version": 1,
+        "enabled": bool(raw.get("enabled")) and mode != "off",
+        "mode": mode,
+        "scope": scope,
+        "user": user,
+        "license_key": str(raw.get("license_key") or "").strip(),
+        "users": clean_users,
+        "updated_at": str(raw.get("updated_at") or ""),
+    }
+
+
+def write_warp_config(config: dict[str, Any]) -> None:
+    config = dict(config)
+    config["version"] = 1
+    config["updated_at"] = utc_now()
+    save_json(WARP_CONFIG_FILE, config, mode=0o600)
+
+
+def warp_runtime_status() -> dict[str, Any]:
+    warp_cli = shutil.which("warp-cli")
+    payload: dict[str, Any] = {
+        "installed": bool(warp_cli),
+        "command": warp_cli or "",
+        "status": "not_installed",
+        "account": "",
+        "mode": "",
+        "last_error": "",
+    }
+    if not warp_cli:
+        return payload
+    code, out, err = run([warp_cli, "status"], timeout=8)
+    payload["status"] = (out or err).strip()
+    if code != 0:
+        payload["last_error"] = err.strip() or out.strip()
+    code, out, err = run([warp_cli, "registration", "show"], timeout=8)
+    if code == 0:
+        payload["account"] = out.strip()
+    else:
+        payload["account"] = ""
+    code, out, _ = run([warp_cli, "mode"], timeout=8)
+    if code == 0:
+        payload["mode"] = out.strip()
+    return payload
+
+
+def public_warp_config() -> dict[str, Any]:
+    cfg = read_warp_config()
+    users_public: dict[str, dict[str, str]] = {}
+    for name, item in cfg.get("users", {}).items():
+        users_public[name] = {
+            "mode": item.get("mode", "off"),
+            "license_mask": mask_secret(item.get("license_key", "")),
+            "updated_at": item.get("updated_at", ""),
+        }
+    return {
+        "enabled": cfg["enabled"],
+        "mode": cfg["mode"],
+        "scope": cfg["scope"],
+        "user": cfg["user"],
+        "license_mask": mask_secret(cfg.get("license_key", "")),
+        "users": users_public,
+        "updated_at": cfg.get("updated_at", ""),
+        "runtime": warp_runtime_status(),
+        "per_user_runtime_supported": False,
+        "per_user_note": "telemt has no documented per-user upstream routing; per-user WARP settings are stored as client metadata.",
+    }
+
+
+def user_warp_payload(name: str) -> dict[str, Any]:
+    cfg = read_warp_config()
+    item = cfg.get("users", {}).get(name, {})
+    inherited = cfg["enabled"] and cfg["scope"] == "all"
+    selected = cfg["enabled"] and cfg["scope"] == "user" and cfg.get("user") == name
+    mode = "off"
+    source = "none"
+    if inherited:
+        mode = cfg["mode"]
+        source = "all"
+    elif selected:
+        mode = item.get("mode") or cfg["mode"]
+        source = "user"
+    elif item:
+        mode = item.get("mode", "off")
+        source = "stored"
+    return {
+        "mode": mode,
+        "source": source,
+        "enabled": mode != "off" and source in {"all", "user"},
+        "license_mask": mask_secret(item.get("license_key", "") if source != "all" else cfg.get("license_key", "")),
+    }
+
+
+def apply_warp_runtime(cfg: dict[str, Any]) -> dict[str, Any]:
+    warp_cli = shutil.which("warp-cli")
+    result: dict[str, Any] = {"applied": False, "commands": [], "warnings": []}
+    if not warp_cli:
+        result["warnings"].append("warp-cli not installed")
+        return result
+    if cfg["scope"] == "user":
+        result["warnings"].append("per-user WARP route saved only; telemt per-user upstream routing is not documented")
+        return result
+
+    def call(args: list[str], timeout: int = 20) -> tuple[int, str, str]:
+        code, out, err = run([warp_cli, *args], timeout=timeout)
+        shown_args = list(args)
+        if len(shown_args) >= 3 and shown_args[0:2] == ["registration", "license"]:
+            shown_args[2] = mask_secret(shown_args[2])
+        result["commands"].append({"cmd": "warp-cli " + " ".join(shown_args), "exit_code": code})
+        return code, out, err
+
+    if not cfg["enabled"] or cfg["mode"] == "off":
+        call(["disconnect"], timeout=15)
+        result["applied"] = True
+        return result
+
+    run(["systemctl", "enable", "--now", "warp-svc"], timeout=20)
+    code, _, _ = call(["registration", "show"], timeout=10)
+    if code != 0:
+        call(["registration", "new"], timeout=30)
+    if cfg["mode"] == "warp_plus":
+        license_key = str(cfg.get("license_key") or "").strip()
+        if license_key:
+            call(["registration", "license", license_key], timeout=30)
+        else:
+            result["warnings"].append("WARP+ selected without license key")
+    call(["mode", "warp+doh"], timeout=15)
+    code, _, err = call(["connect"], timeout=30)
+    result["applied"] = code == 0
+    if code != 0 and err:
+        result["warnings"].append(err.strip())
+    return result
 
 
 def read_disabled_users() -> dict[str, str]:
@@ -1469,6 +1641,7 @@ def user_payload(
         "main": name == "main",
         "enabled": bool(enabled),
         "max_unique_ips": _int_value(max_unique_ips),
+        "warp": user_warp_payload(name),
     }
     if traffic_snapshot:
         item["traffic"] = {
@@ -1513,6 +1686,7 @@ def overview_payload() -> dict[str, Any]:
         "runtime_summary": summary,
         "backups": list_backups(),
         "backup_schedule": backup_schedule_status(),
+        "warp": public_warp_config(),
     }
 
 
@@ -1631,6 +1805,8 @@ class AdminHandler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/api/overview":
             self.send_json({"ok": True, "data": overview_payload()})
+        elif path == "/api/warp":
+            self.send_json({"ok": True, "data": public_warp_config()})
         elif path == "/api/users":
             users = read_user_records()
             latest = latest_user_stats()
@@ -1897,6 +2073,55 @@ class AdminHandler(BaseHTTPRequestHandler):
                 self.send_error_json(500, f"failed to save credentials: {exc}")
                 return
             self.send_json({"ok": True, "data": {"user": username, "changed": username != current_user or new_password != current_expected}})
+        elif path == "/api/warp":
+            current = read_warp_config()
+            mode = str(body.get("mode") or "off").strip().lower()
+            if mode not in {"off", "warp", "warp_plus"}:
+                self.send_error_json(400, "invalid WARP mode")
+                return
+            scope = str(body.get("scope") or "all").strip().lower()
+            if scope not in {"all", "user"}:
+                self.send_error_json(400, "invalid WARP scope")
+                return
+            user = str(body.get("user") or "").strip()
+            if scope == "user":
+                records = read_user_records()
+                if not USER_RE.match(user) or user not in records:
+                    self.send_error_json(400, "invalid WARP user")
+                    return
+            else:
+                user = ""
+            license_key = str(body.get("license_key") or "").strip()
+            if not license_key:
+                if scope == "user" and user:
+                    license_key = str(current.get("users", {}).get(user, {}).get("license_key", ""))
+                else:
+                    license_key = str(current.get("license_key", ""))
+            enabled = mode != "off"
+            next_cfg = dict(current)
+            next_cfg.update({
+                "enabled": enabled,
+                "mode": mode,
+                "scope": scope,
+                "user": user,
+            })
+            if scope == "all":
+                next_cfg["license_key"] = license_key
+            else:
+                users_cfg = dict(next_cfg.get("users") or {})
+                users_cfg[user] = {
+                    "mode": mode,
+                    "license_key": license_key,
+                    "updated_at": utc_now(),
+                }
+                next_cfg["users"] = users_cfg
+            try:
+                write_warp_config(next_cfg)
+                apply_result = apply_warp_runtime(next_cfg)
+            except Exception as exc:
+                self.send_error_json(500, f"failed to save WARP config: {exc}")
+                return
+            self.send_json({"ok": True, "data": {"config": public_warp_config(), "apply": apply_result}})
         elif path == "/api/auth/logout":
             self.handle_logout()
         elif path.startswith("/api/services/") and path.endswith("/restart"):
@@ -1933,9 +2158,18 @@ class AdminHandler(BaseHTTPRequestHandler):
                 disabled.pop(name, None)
                 limits = read_user_max_unique_ips()
                 limits.pop(name, None)
+                warp_cfg = read_warp_config()
+                warp_users = dict(warp_cfg.get("users") or {})
+                warp_users.pop(name, None)
+                warp_cfg["users"] = warp_users
+                if warp_cfg.get("user") == name:
+                    warp_cfg["enabled"] = False
+                    warp_cfg["mode"] = "off"
+                    warp_cfg["user"] = ""
                 write_telemt_users(active)
                 write_disabled_users(disabled)
                 write_user_max_unique_ips(limits)
+                write_warp_config(warp_cfg)
         except Exception as exc:
             self.send_error_json(500, f"failed to save config: {exc}")
             return
