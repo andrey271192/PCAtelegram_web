@@ -1235,23 +1235,29 @@ def routed_behind_443() -> list[dict[str, Any]]:
     return routes
 
 
-def port_443_status() -> dict[str, Any]:
-    listeners, errors = collect_port_listeners(443)
+def port_status(port: int | None = None) -> dict[str, Any]:
+    public_port = int(port or read_telemt_port() or 443)
+    listeners, errors = collect_port_listeners(public_port)
     shared = load_shared443_config()
-    if shared.get("enabled"):
+    if public_port == 443 and shared.get("enabled"):
         for item in listeners:
             if item.get("role") == "site" and "nginx" in str(item.get("process", "")).lower():
                 item["role"] = "edge"
                 item["details"] = "nginx stream ssl_preread"
     return {
         "checked_at": int(time.time()),
+        "public_port": public_port,
         "configured_port": read_telemt_port(),
         "listeners": listeners,
-        "routes": routed_behind_443(),
+        "routes": routed_behind_443() if public_port == 443 else [],
         "shared_443": shared,
         "ok": not errors,
         "error": "; ".join(errors[:2]),
     }
+
+
+def port_443_status() -> dict[str, Any]:
+    return port_status(443)
 
 
 def wait_tcp_port(port: int, timeout: int = 90) -> bool:
@@ -1856,6 +1862,7 @@ def overview_payload() -> dict[str, Any]:
         "site_status": site_status(config),
         "users_count": len(users),
         "services": services,
+        "port_map": port_status(int(config.get("port") or read_telemt_port() or 443)),
         "port_443": port_443_status(),
         "stats_current": current,
         "stats_history": history,

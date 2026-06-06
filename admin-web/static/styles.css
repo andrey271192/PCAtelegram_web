@@ -380,6 +380,45 @@ h2 {
   color: var(--muted);
 }
 
+.visual-routing-form {
+  display: grid;
+  grid-template-columns: minmax(92px, 130px) minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  max-width: 620px;
+  margin-top: 16px;
+}
+
+.visual-routing-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.visual-routing-form input {
+  min-height: 42px;
+}
+
+.visual-routing-form button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.visual-routing-note {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.visual-routing-note.error {
+  color: var(--red);
+}
+
 .signal-map {
   position: relative;
   min-height: 128px;
@@ -1550,6 +1589,10 @@ td small {
 
 @media (max-width: 720px) {
   .visual-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .visual-routing-form {
     grid-template-columns: 1fr;
   }
 

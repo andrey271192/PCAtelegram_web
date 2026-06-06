@@ -111,6 +111,7 @@ const i18n = {
     routingPort: "Public port",
     routingMaskHost: "Mask site",
     routingSave: "Save routing",
+    routingSaveShort: "Save",
     routingSaved: "Routing saved",
     routingOk: "port free",
     routingBusy: "port busy",
@@ -205,8 +206,8 @@ const i18n = {
     keyEnabled: "Key enabled",
     keyDisabled: "Key disabled",
     ipLimitSaved: "IP limit saved",
-    visualTitle: "Port 443 map",
-    visualText: "Shows the public 443 listener and services routed behind it, including the website on local nginx.",
+    visualTitle: "Port {port} map",
+    visualText: "Shows the selected public listener. Port 443 may be occupied by Xray / 3x-ui; busy ports are blocked on save.",
     port443Checked: "checked",
     port443NoListeners: "No 443 listeners found",
     port443Listeners: "listeners",
@@ -214,8 +215,8 @@ const i18n = {
     port443Error: "Port check failed",
     port443Public: "public",
     port443Configured: "telemt: {port}",
-    port443PublicSection: "Public 443",
-    port443BehindSection: "Behind 443",
+    port443PublicSection: "Public port {port}",
+    port443BehindSection: "Behind port {port}",
     port443NoRoutes: "No routed services detected",
     port443Via: "via {value}",
     roleMtproxy: "MTProxy",
@@ -365,6 +366,7 @@ const i18n = {
     routingPort: "Публичный порт",
     routingMaskHost: "Сайт маскировки",
     routingSave: "Сохранить маршрут",
+    routingSaveShort: "Сохранить",
     routingSaved: "Маршрутизация сохранена",
     routingOk: "порт свободен",
     routingBusy: "порт занят",
@@ -459,8 +461,8 @@ const i18n = {
     keyEnabled: "Ключ включён",
     keyDisabled: "Ключ отключён",
     ipLimitSaved: "Лимит IP сохранён",
-    visualTitle: "Карта порта 443",
-    visualText: "Показывает публичного слушателя 443 и сервисы, которые живут за ним, включая сайт на локальном nginx.",
+    visualTitle: "Карта порта {port}",
+    visualText: "Показывает выбранный публичный порт. 443 может быть занят Xray / 3x-ui; занятые порты блокируются при сохранении.",
     port443Checked: "проверено",
     port443NoListeners: "Слушателей 443 не найдено",
     port443Listeners: "слушателей",
@@ -468,8 +470,8 @@ const i18n = {
     port443Error: "Проверка порта не удалась",
     port443Public: "публичный",
     port443Configured: "telemt: {port}",
-    port443PublicSection: "Публичный 443",
-    port443BehindSection: "За портом 443",
+    port443PublicSection: "Публичный порт {port}",
+    port443BehindSection: "За портом {port}",
     port443NoRoutes: "Маршрутизируемых сервисов не найдено",
     port443Via: "через {value}",
     roleMtproxy: "MTProxy",
@@ -858,14 +860,17 @@ function roleLabel(role) {
   return label === key ? t("roleOther") : label;
 }
 
-function renderPort443(payload = {}) {
+function renderPortMap(payload = {}) {
   const listeners = Array.isArray(payload.listeners) ? payload.listeners : [];
   const routes = Array.isArray(payload.routes) ? payload.routes : [];
   const summary = $("#port443Summary");
   const list = $("#port443List");
-  const configuredPort = Number(payload.configured_port) || 443;
-  $("#port443Number").textContent = "443";
-  $("#port443Configured").textContent = configuredPort === 443 ? t("port443Public") : t("port443Configured").replace("{port}", configuredPort);
+  const publicPort = Number(payload.public_port || payload.port || payload.configured_port) || 443;
+  const configuredPort = Number(payload.configured_port) || publicPort;
+  $("#visualTitle").textContent = t("visualTitle").replace("{port}", publicPort);
+  $("#visualText").textContent = t("visualText");
+  $("#port443Number").textContent = String(publicPort);
+  $("#port443Configured").textContent = configuredPort === publicPort ? t("port443Public") : t("port443Configured").replace("{port}", configuredPort);
   if (payload.error) {
     summary.textContent = t("port443Error");
     summary.className = "port-status error";
@@ -898,9 +903,9 @@ function renderPort443(payload = {}) {
     </article>`;
   }).join("") : `<div class="port-empty">${escapeHtml(t("port443NoRoutes"))}</div>`;
   list.innerHTML = `
-    <div class="port-section-label">${escapeHtml(t("port443PublicSection"))}</div>
+    <div class="port-section-label">${escapeHtml(t("port443PublicSection").replace("{port}", publicPort))}</div>
     ${listenerHtml}
-    <div class="port-section-label">${escapeHtml(t("port443BehindSection"))}</div>
+    <div class="port-section-label">${escapeHtml(t("port443BehindSection").replace("{port}", publicPort))}</div>
     ${routeHtml}
   `;
 }
@@ -916,7 +921,7 @@ function renderOverview() {
   $("#settingsBind").textContent = `${bind.host || "127.0.0.1"}:${bind.port || 1984}`;
   $("#metricMode").textContent = cfg.mode || "--";
   renderSiteStatus();
-  renderPort443(data.port_443 || {});
+  renderPortMap(data.port_map || data.port_443 || {});
   $("#metricUsers").textContent = data.users_count ?? 0;
   $("#metricProxyTraffic").textContent = fmtBytes(stats.proxy_bytes);
   $("#metricProxyPackets").textContent = `${stats.proxy_pkts || 0} ${t("packets")}`;
@@ -1437,19 +1442,47 @@ function routingSummary(payload) {
   return `${listenerText}. ${mask}. ${t("routingPerUserNote")}`;
 }
 
+function routingControlPairs() {
+  return [
+    {
+      port: $("#visualRoutingPort"),
+      mask: $("#visualRoutingMaskHost"),
+      note: $("#visualRoutingNote"),
+    },
+    {
+      port: $("#routingPort"),
+      mask: $("#routingMaskHost"),
+      note: $("#routingRuntimeNote"),
+    },
+  ].filter((item) => item.port && item.mask);
+}
+
+function setRoutingControlValues(routing = {}) {
+  routingControlPairs().forEach((item) => {
+    item.port.value = routing.port || 443;
+    item.mask.value = routing.mask_host || "google.com";
+  });
+}
+
+function setRoutingNotes(routing = {}) {
+  const conflicts = routing.conflicts || [];
+  const message = routingSummary(routing);
+  routingControlPairs().forEach((item) => {
+    if (!item.note) return;
+    item.note.textContent = message;
+    item.note.classList.toggle("error", Boolean(conflicts.length));
+  });
+}
+
 function renderRoutingSettings(payload = null) {
   const routing = payload || state.routing || state.overview?.routing || {};
-  const portEl = $("#routingPort");
-  const maskEl = $("#routingMaskHost");
-  if (!portEl || !maskEl) return;
   if (!payload) {
-    portEl.value = routing.port || 443;
-    maskEl.value = routing.mask_host || "google.com";
+    setRoutingControlValues(routing);
   }
   const conflicts = routing.conflicts || [];
   $("#routingStatus").textContent = conflicts.length ? t("routingBusy") : t("routingOk");
   $("#routingStatus").className = `status-pill ${conflicts.length ? "health-error" : "health-ok"}`;
-  $("#routingRuntimeNote").textContent = routingSummary(routing);
+  setRoutingNotes(routing);
 }
 
 async function refreshAll() {
@@ -1640,16 +1673,28 @@ async function setUserMaxUniqueIps(name, value) {
   }
 }
 
-async function checkRoutingPort() {
-  const port = Number.parseInt($("#routingPort").value, 10);
+async function checkRoutingPort(inputEl = $("#routingPort")) {
+  const port = Number.parseInt(inputEl?.value, 10);
   if (!Number.isFinite(port) || port < 1 || port > 65535) return;
   try {
     const data = await api(`/api/routing?port=${encodeURIComponent(port)}`);
     renderRoutingSettings(data);
+    renderPortMap({
+      public_port: data.port,
+      configured_port: state.routing?.port || state.overview?.routing?.port || data.port,
+      listeners: data.listeners || [],
+      routes: [],
+      ok: data.ok,
+      error: data.error,
+    });
   } catch (err) {
     $("#routingStatus").textContent = t("routingBusy");
     $("#routingStatus").className = "status-pill health-error";
-    $("#routingRuntimeNote").textContent = err.message;
+    routingControlPairs().forEach((item) => {
+      if (!item.note) return;
+      item.note.textContent = err.message;
+      item.note.classList.add("error");
+    });
   }
 }
 
@@ -1657,18 +1702,22 @@ async function saveRoutingSettings(eventObj) {
   eventObj.preventDefault();
   const form = eventObj.currentTarget;
   const controls = Array.from(form.querySelectorAll("input, button"));
+  const portInput = form.querySelector('[name="port"]');
+  const maskInput = form.querySelector('[name="mask_host"]');
   controls.forEach((control) => { control.disabled = true; });
   try {
     const payload = {
-      port: Number.parseInt($("#routingPort").value, 10),
-      mask_host: $("#routingMaskHost").value.trim(),
+      port: Number.parseInt(portInput?.value, 10),
+      mask_host: String(maskInput?.value || "").trim(),
     };
     const data = await api("/api/routing", {
       method: "POST",
       body: JSON.stringify(payload),
     });
     state.routing = data;
+    state.overview = await api("/api/overview");
     renderRoutingSettings();
+    renderOverview();
     addEvent(t("routingSaved"), `${data.port} / ${data.mask_host}`);
     toast(t("routingSaved"));
     setTimeout(() => refreshAll().catch((err) => toast(err.message)), 1400);
@@ -1947,8 +1996,10 @@ $("#loadLogsBtn").addEventListener("click", loadLogs);
 $("#repairStatsBtn").addEventListener("click", repairStats);
 $("#collectStatsBtn").addEventListener("click", collectStats);
 $("#authSettingsForm").addEventListener("submit", updateAuthSettings);
+$("#visualRoutingForm").addEventListener("submit", saveRoutingSettings);
+$("#visualRoutingPort").addEventListener("change", (eventObj) => checkRoutingPort(eventObj.target));
 $("#routingSettingsForm").addEventListener("submit", saveRoutingSettings);
-$("#routingPort").addEventListener("change", checkRoutingPort);
+$("#routingPort").addEventListener("change", (eventObj) => checkRoutingPort(eventObj.target));
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
 $("#warpUserSelect").addEventListener("change", renderWarpSettings);

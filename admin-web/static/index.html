@@ -11,7 +11,7 @@
       document.documentElement.dataset.theme = theme;
     }());
   </script>
-  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin19">
+  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin24">
 </head>
 <body>
   <div class="app-shell">
@@ -69,6 +69,18 @@
               <p class="eyebrow">PCAtelegram_web</p>
               <h2 id="visualTitle">Port 443</h2>
               <p id="visualText">Website, MTProxy and local admin status in one operational view.</p>
+              <form id="visualRoutingForm" class="visual-routing-form">
+                <label>
+                  <span data-i18n="routingPort">Public port</span>
+                  <input id="visualRoutingPort" name="port" type="number" min="1" max="65535" step="1" inputmode="numeric" placeholder="443">
+                </label>
+                <label>
+                  <span data-i18n="routingMaskHost">Mask site</span>
+                  <input id="visualRoutingMaskHost" name="mask_host" list="maskHostOptions" autocomplete="off" spellcheck="false" placeholder="google.com">
+                </label>
+                <button type="submit" data-i18n="routingSaveShort">Save</button>
+              </form>
+              <p id="visualRoutingNote" class="visual-routing-note"></p>
             </div>
             <div class="port-map" id="port443Map">
               <div class="port-map-head">
@@ -470,6 +482,6 @@
       <button id="qrCopyBtn" type="button" class="soft" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin23" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin24" type="module"></script>
 </body>
 </html>
