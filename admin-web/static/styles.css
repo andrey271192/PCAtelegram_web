@@ -320,6 +320,30 @@ h2 {
   padding: 28px;
 }
 
+.support-footer {
+  width: min(1480px, 100%);
+  padding: 0 28px 24px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.support-footer strong {
+  color: var(--blue);
+  font-weight: 900;
+}
+
+.support-footer a {
+  color: var(--violet);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.support-footer a:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
 .page-panel {
   display: none;
 }
@@ -1524,6 +1548,10 @@ td small {
 
   .content {
     padding: 16px;
+  }
+
+  .support-footer {
+    padding: 0 16px 20px;
   }
 
   .panel {

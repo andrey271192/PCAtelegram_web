@@ -2,6 +2,8 @@
 
 Отдельный проект PCAtelegram_web: MTProxy на базе `telemt`, Telegram-бот, локальная web-admin панель, статистика, backup/restore, шаблоны сайта.
 
+> Поддержать проект: [Boosty](https://boosty.to/andrey27/donate) · [Ozon Bank](https://finance.ozon.ru/apps/sbp/ozonbankpay/019dc200-2a5d-7931-a619-782d285f6798) · [Telegram](https://t.me/PCAdministration) · [GitHub](https://github.com/andrey271192/PCAtelegram_web)
+
 ## Установка
 
 На сервере под `root`:
@@ -53,7 +55,14 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `PCATELEGRAM_WEB_ADMIN_HOST` | `0.0.0.0` | bind web-admin |
 | `PCATELEGRAM_WEB_ADMIN_PORT` | `1984` | port web-admin |
 | `PCATELEGRAM_WEB_ADMIN_USER` | `admin` | Basic Auth login |
-| `PCATELEGRAM_WEB_ADMIN_PASSWORD` | автогенерация | Basic Auth password |
+| `PCATELEGRAM_WEB_ADMIN_PASSWORD` | `admin` | web-admin password |
+
+## Поддержка
+
+- **GitHub:** [andrey271192/PCAtelegram_web](https://github.com/andrey271192/PCAtelegram_web)
+- **Boosty:** [boosty.to/andrey27/donate](https://boosty.to/andrey27/donate)
+- **Ozon Bank:** [ссылка](https://finance.ozon.ru/apps/sbp/ozonbankpay/019dc200-2a5d-7931-a619-782d285f6798)
+- **Telegram:** [PCAdministration](https://t.me/PCAdministration)
 
 ## Web-admin
 
@@ -63,7 +72,7 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 http://SERVER:1984/
 ```
 
-Логин по умолчанию: `admin`. Пароль генерируется при установке и хранится на сервере:
+Логин и пароль по умолчанию: `admin` / `admin`. Данные можно сменить в web-admin Settings. Текущие данные хранятся на сервере:
 
 ```bash
 sudo cat /root/pcatelegram_web-admin.password
