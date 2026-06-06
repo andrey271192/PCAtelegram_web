@@ -215,7 +215,6 @@ submenu_about() {
         echo -e "  ${BOLD}${WHITE}$(t submenu_about_title)${NC}"
         echo -e "  ${DIM}$(printf '─%.0s' {1..54})${NC}"
         echo -e "  ${CYAN}1${NC}) $(t about_version_info)"
-        echo -e "  ${CYAN}2${NC}) $(t about_promo)"
         echo -e "  ${CYAN}0${NC}) $(t back)"
         echo -e "  ${DIM}$(printf '─%.0s' {1..54})${NC}"
         echo -ne "  ${WHITE}$(t choose):${NC} "
@@ -223,7 +222,6 @@ submenu_about() {
 
         case "$ch" in
             1) menu_version ;;
-            2) menu_promo ;;
             0) break ;;
             *) log_error "$(t invalid_choice)" ;;
         esac
@@ -1407,89 +1405,6 @@ bot_remove() {
     log_success "$(t bot_removed)"
 }
 
-# ── Promo ────────────────────────────────────────────────────────────────────
-_promo_block() {
-    # Print a promo section without width-fragile box borders (i18n safe)
-    local line2; line2=$(printf '─%.0s' {1..54})
-    local youtube_link="${PCATELEGRAM_WEB_YOUTUBE_LINK:-}"
-    echo ""
-    echo -e "  ${DIM}${line2}${NC}"
-    echo -e "  ${BOLD}${YELLOW}$(t promo_host1_title)${NC}"
-    echo -e "  $(t promo_link_label) ${CYAN}https://vk.cc/ct29NQ${NC}"
-    echo -e "     ${WHITE}OFF60${NC}     — $(tf promo_off60)"
-    echo -e "     ${WHITE}BONUS20${NC} — $(tf promo_ant20)"
-    echo -e "     ${WHITE}BONUS6${NC}  — $(tf promo_ant6)"
-    echo -e "  ${DIM}${line2}${NC}"
-    echo -e "  ${BOLD}${YELLOW}$(t promo_host2_title)${NC}"
-    echo -e "  $(t promo_link_label) ${CYAN}https://vk.cc/cUxAhj${NC}"
-    echo -e "     ${WHITE}OFF60${NC}     — $(tf promo_off60)"
-    echo -e "  ${DIM}${line2}${NC}"
-    echo -e "  ${BOLD}${YELLOW}$(t promo_tips_title)${NC}"
-    echo -e "  ${CYAN}https://pay.cloudtips.ru/p/7410814f${NC}"
-    if [ -n "$youtube_link" ]; then
-        echo -e "  ${DIM}${line2}${NC}"
-        echo -e "  ${BOLD}${YELLOW}$(t promo_youtube_title)${NC}"
-        echo -e "  $(t promo_link_label) ${CYAN}${youtube_link}${NC}"
-    fi
-    echo -e "  ${DIM}${line2}${NC}"
-    echo ""
-}
-
-menu_promo() {
-    _promo_block
-}
-
-# ── Проверка: показывать ли промо (раз в сутки) ────────────────────────────
-should_show_promo() {
-    local stamp_file="$PCATELEGRAM_WEB_DIR/.promo_last_shown"
-    if [ ! -f "$stamp_file" ]; then
-        return 0  # никогда не показывали
-    fi
-    local last_shown now diff
-    last_shown=$(cat "$stamp_file" 2>/dev/null || echo "0")
-    last_shown="${last_shown//[^0-9]/}"
-    last_shown="${last_shown:-0}"
-    now=$(date +%s)
-    diff=$(( now - last_shown ))
-    # 86400 = 24 часа
-    [ "$diff" -ge 86400 ]
-}
-
-mark_promo_shown() {
-    mkdir -p "$PCATELEGRAM_WEB_DIR"
-    date +%s > "$PCATELEGRAM_WEB_DIR/.promo_last_shown"
-}
-
-_promo_qr() {
-    local label="$1" url="$2"
-    [ -n "$url" ] || return 0
-    echo -e "  ${DIM}${label}${NC}"
-    qrencode -t UTF8 -m 1 "$url" 2>/dev/null | while IFS= read -r qr_line; do
-        echo "    $qr_line"
-    done
-}
-
-# ── Promo with QR + delay (on install + once per day) ───────────────────
-show_promo_with_qr() {
-    _promo_block
-
-    if command -v qrencode &>/dev/null; then
-        _promo_qr "$(t promo_qr_host1)" "https://vk.cc/ct29NQ"
-        _promo_qr "$(t promo_qr_host2)" "https://vk.cc/cUxAhj"
-        _promo_qr "$(t promo_qr_tips)" "https://pay.cloudtips.ru/p/7410814f"
-        _promo_qr "$(t promo_qr_youtube)" "${PCATELEGRAM_WEB_YOUTUBE_LINK:-}"
-    fi
-
-    mark_promo_shown
-
-    # 5-second countdown
-    for i in 5 4 3 2 1; do
-        echo -ne "\r  ${DIM}$(tf promo_menu_in "$i")${NC}  "
-        sleep 1
-    done
-    echo -ne "\r                                            \r"
-}
-
 # ── First-run: pick language ─────────────────────────────────────────────────
 first_run_language_picker() {
     # Show picker only if language not yet saved
@@ -1828,11 +1743,6 @@ main() {
     # Pre-flight
     check_os
     check_disk_space 500
-
-    # Promo once per day
-    if should_show_promo; then
-        show_promo_with_qr
-    fi
 
     while true; do
         clear

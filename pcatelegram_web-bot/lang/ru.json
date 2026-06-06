@@ -31,7 +31,6 @@
   "menu_restore": "↩️ Восстановить",
   "menu_update": "📡 Обновить telemt",
   "menu_website": "🌐 Сайт/SSL",
-  "menu_promo": "🎁 Промо",
   "menu_stats": "📊 Трафик",
   "menu_users": "🔑 Ключи",
   "menu_admin_web": "🖥 Веб-админка",
@@ -104,7 +103,6 @@
   "admins_list": "Текущие ID админов:",
   "admins_empty": "Админы не настроены",
 
-  "promo_title": "🎁 Промо",
   "credits_title": "ℹ️ О проекте",
 
   "cg_title": "🔗 Свой git-шаблон",

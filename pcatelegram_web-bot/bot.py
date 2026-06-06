@@ -116,12 +116,6 @@ BACKUP_SCHEDULE_FILE = "/opt/pcatelegram_web/backup_schedule.json"
 TEMPLATES_CATALOG = "/opt/pcatelegram_web/templates_catalog.json"
 INSTALL_SH = "/opt/pcatelegram_web/install.sh"
 
-PROMO_LINK_1 = "https://vk.cc/ct29NQ"
-PROMO_LINK_2 = "https://vk.cc/cUxAhj"
-TIP_LINK = "https://pay.cloudtips.ru/p/7410814f"
-YOUTUBE_LINK = os.getenv("PCATELEGRAM_WEB_YOUTUBE_LINK", "").strip()
-PROMO_STAMP_FILE = "/opt/pcatelegram_web/.promo_bot_last_shown"
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ENV_FILE = "/opt/pcatelegram_web-bot/.env"
 ADMIN_WEB_SERVICE = "pcatelegram_web-admin"
@@ -470,7 +464,7 @@ async def safe_edit_message(
 async def _delete_message_after(message, delay: int = 30) -> None:
     """Delete a Telegram message after `delay` seconds. Errors are swallowed
     (message may already be deleted by the user). Used for ephemeral content
-    like promo blocks that should auto-cleanup."""
+    like temporary notices that should auto-cleanup."""
     try:
         await asyncio.sleep(delay)
         await message.delete()
@@ -593,22 +587,21 @@ def get_main_menu(user_id: Optional[int] = None) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(_t(user_id, "menu_website"), callback_data="menu_website"),
-            InlineKeyboardButton(_t(user_id, "menu_promo"), callback_data="menu_promo"),
-        ],
-        [
             InlineKeyboardButton(_t(user_id, "menu_stats"), callback_data="menu_stats"),
+        ],
+        [
             InlineKeyboardButton(_t(user_id, "menu_users"), callback_data="menu_users"),
-        ],
-        [
             InlineKeyboardButton(_t(user_id, "menu_admin_web"), callback_data="menu_admin_web"),
+        ],
+        [
             InlineKeyboardButton(_t(user_id, "menu_admins"), callback_data="menu_admins"),
-        ],
-        [
             InlineKeyboardButton(_t(user_id, "menu_remove"), callback_data="menu_remove"),
-            InlineKeyboardButton(_t(user_id, "menu_credits"), callback_data="menu_credits"),
         ],
         [
+            InlineKeyboardButton(_t(user_id, "menu_credits"), callback_data="menu_credits"),
             InlineKeyboardButton(_t(user_id, "menu_language"), callback_data="menu_lang"),
+        ],
+        [
             InlineKeyboardButton(_t(user_id, "menu_close"), callback_data="close_menu"),
         ],
     ]
@@ -621,7 +614,7 @@ def get_main_menu(user_id: Optional[int] = None) -> InlineKeyboardMarkup:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Start command - show main menu, promo once per day.
+    """Start command - show main menu.
 
     Если ALLOWED_IDS пуст — режим авто-регистрации первого админа.
     """
@@ -660,14 +653,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         welcome, reply_markup=get_main_menu(user_id), parse_mode="HTML"
     )
-
-    # Промо раз в сутки — сообщение само удаляется через 30 секунд
-    if should_show_promo_bot():
-        mark_promo_shown_bot()
-        promo_msg = await update.message.reply_text(
-            get_promo_text(), parse_mode="HTML", disable_web_page_preview=True
-        )
-        asyncio.create_task(_delete_message_after(promo_msg, 30))
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2924,73 +2909,6 @@ async def cmd_deladmin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(f"✅ Удалены: {', '.join(removed)}")
 
 
-# ============================================================================
-# PROMO & CREDITS
-# ============================================================================
-
-
-def get_promo_text() -> str:
-    """Return promo text with 2 hosters, optional YouTube link and donate."""
-    text = (
-        "<b>💰 Хостинг #1 — скидка до 60%</b>\n"
-        f"<a href='{PROMO_LINK_1}'>{PROMO_LINK_1}</a>\n\n"
-        "<b>Промокоды:</b>\n"
-        "  <code>OFF60</code> — 60% на первый месяц\n"
-        "  <code>BONUS20</code> — 20% + 3% за 3 мес\n"
-        "  <code>BONUS6</code> — 15% + 5% за 6 мес\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "<b>💰 Хостинг #2 — скидка до 60%</b>\n"
-        f"<a href='{PROMO_LINK_2}'>{PROMO_LINK_2}</a>\n\n"
-        "<b>Промокод:</b>\n"
-        "  <code>OFF60</code> — 60% на первый месяц\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "<b>☕ Донат / Чаевые</b>\n"
-        f"<a href='{TIP_LINK}'>{TIP_LINK}</a>"
-    )
-    if YOUTUBE_LINK:
-        text += (
-            "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "<b>▶ YouTube-канал</b>\n"
-            f"<a href='{html.escape(YOUTUBE_LINK)}'>{html.escape(YOUTUBE_LINK)}</a>"
-        )
-    return text
-
-
-def should_show_promo_bot() -> bool:
-    """Check if promo should be shown (once per 24h)."""
-    try:
-        if not os.path.exists(PROMO_STAMP_FILE):
-            return True
-        with open(PROMO_STAMP_FILE, "r") as f:
-            last_ts = int(f.read().strip())
-        return (int(time.time()) - last_ts) >= 86400
-    except (ValueError, OSError):
-        return True
-
-
-def mark_promo_shown_bot() -> None:
-    """Mark promo as shown."""
-    try:
-        os.makedirs(os.path.dirname(PROMO_STAMP_FILE), exist_ok=True)
-        with open(PROMO_STAMP_FILE, "w") as f:
-            f.write(str(int(time.time())))
-    except OSError:
-        pass
-
-
-async def cb_menu_promo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Promo information — shown as a separate ephemeral message that
-    auto-deletes after 30s so it does not clutter the chat. The main menu
-    message stays intact (we don't edit it in place)."""
-    query = update.callback_query
-    await query.answer()
-
-    promo_msg = await query.message.reply_text(
-        get_promo_text(), parse_mode="HTML", disable_web_page_preview=True
-    )
-    asyncio.create_task(_delete_message_after(promo_msg, 30))
-
-
 async def cb_menu_credits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Credits and acknowledgements."""
     query = update.callback_query
@@ -3180,7 +3098,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "menu_update": cb_menu_update,
         "menu_change": cb_menu_change,
         "menu_website": cb_menu_website,
-        "menu_promo": cb_menu_promo,
         "menu_credits": cb_menu_credits,
         "menu_admin_web": cb_menu_admin_web,
         "menu_admins": cb_menu_admins,

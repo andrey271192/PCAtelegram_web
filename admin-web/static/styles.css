@@ -1362,7 +1362,7 @@ td small {
   transform: translateY(0);
 }
 
-.promo-modal {
+.modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -1372,11 +1372,11 @@ td small {
   background: rgba(5, 8, 16, .48);
 }
 
-.promo-modal[hidden] {
+.modal-overlay[hidden] {
   display: none;
 }
 
-.promo-card {
+.modal-card {
   position: relative;
   width: min(620px, 100%);
   border: 1px solid var(--line);
@@ -1386,38 +1386,10 @@ td small {
   padding: 22px;
 }
 
-.promo-card .icon-btn {
+.modal-card .icon-btn {
   position: absolute;
   top: 14px;
   right: 14px;
-}
-
-.promo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.promo-grid a {
-  display: grid;
-  gap: 6px;
-  min-height: 98px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-  color: var(--text);
-  padding: 14px;
-  text-decoration: none;
-}
-
-.promo-grid a:hover {
-  border-color: var(--green);
-}
-
-.promo-grid span {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 @media (max-width: 1180px) {
@@ -1536,8 +1508,7 @@ td small {
 }
 
 @media (max-width: 720px) {
-  .visual-overview,
-  .promo-grid {
+  .visual-overview {
     grid-template-columns: 1fr;
   }
 

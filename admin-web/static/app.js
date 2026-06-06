@@ -215,11 +215,6 @@ const i18n = {
     ariaTrafficHistory: "Traffic history",
     ariaTrafficRange: "Traffic range",
     ariaTrafficView: "Traffic view",
-    promoEyebrow: "Promo",
-    promoTitle: "Support PCAtelegram_web",
-    promoHosting1: "Hosting #1",
-    promoHosting2: "Hosting #2",
-    promoTips: "Tips",
     qrEyebrow: "QR import",
     qrTitle: "Scan Telegram proxy",
     pageDashboardTitle: "Dashboard",
@@ -448,11 +443,6 @@ const i18n = {
     ariaTrafficHistory: "История трафика",
     ariaTrafficRange: "Период трафика",
     ariaTrafficView: "Вид трафика",
-    promoEyebrow: "Промо",
-    promoTitle: "Поддержать PCAtelegram_web",
-    promoHosting1: "Хостинг #1",
-    promoHosting2: "Хостинг #2",
-    promoTips: "Чаевые",
     qrEyebrow: "QR-импорт",
     qrTitle: "Сканирование прокси Telegram",
     pageDashboardTitle: "Обзор",
@@ -1675,15 +1665,6 @@ async function copyText(value) {
   }
 }
 
-function maybeShowPromo() {
-  const key = "pcatelegram_web-promo-last";
-  const now = Math.floor(Date.now() / 1000);
-  const last = Number(localStorage.getItem(key) || 0);
-  if (now - last < 86400) return;
-  localStorage.setItem(key, String(now));
-  $("#promoModal").hidden = false;
-}
-
 document.addEventListener("click", async (eventObj) => {
   const nav = eventObj.target.closest("[data-nav]");
   if (nav) {
@@ -1768,9 +1749,6 @@ document.addEventListener("submit", (eventObj) => {
 $("#refreshBtn").addEventListener("click", refreshAll);
 $("#autoRefreshToggle").addEventListener("click", () => setAutoRefresh(!state.autoRefreshEnabled));
 $("#languageSelect").addEventListener("change", (eventObj) => setLanguage(eventObj.target.value));
-$("#promoClose").addEventListener("click", () => {
-  $("#promoModal").hidden = true;
-});
 $("#qrClose").addEventListener("click", () => {
   $("#qrModal").hidden = true;
 });
@@ -1790,4 +1768,3 @@ renderEvents();
 syncAutoRefreshTimer();
 refreshAll();
 loadLogs();
-maybeShowPromo();

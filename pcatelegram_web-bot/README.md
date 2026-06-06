@@ -16,7 +16,6 @@ Production-quality Telegram bot for managing MTProxy (telemt engine) on Linux se
   - telemt updates
   - Website/SSL management
   - Remove installation
-  - Promotional links
 
 - **Template Browsing** - Browse categories → templates → preview → install
 - **Per-user MTProxy Keys** - Manage telemt `[access.users]` from inline bot menus
