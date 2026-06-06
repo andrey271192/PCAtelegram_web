@@ -19,6 +19,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import toml
 from datetime import datetime
@@ -405,6 +406,14 @@ def pro_template_map(context: ContextTypes.DEFAULT_TYPE) -> Dict[str, str]:
     return mapping
 
 
+def stable_short_digest(algo: str, value: str, length: int) -> str:
+    try:
+        digest = hashlib.new(algo, value.encode("utf-8"), usedforsecurity=False)
+    except TypeError:
+        digest = hashlib.new(algo, value.encode("utf-8"))
+    return digest.hexdigest()[:length]
+
+
 def resolve_pro_template_id(context: ContextTypes.DEFAULT_TYPE, key_or_id: str) -> str:
     """Resolve a short Telegram callback key back to the real template id."""
     mapped = pro_template_map(context).get(key_or_id)
@@ -415,7 +424,7 @@ def resolve_pro_template_id(context: ContextTypes.DEFAULT_TYPE, key_or_id: str) 
     for cat in catalog.get("categories", []):
         for tpl in cat.get("templates", []):
             template_id = str(tpl.get("id", ""))
-            if hashlib.sha1(template_id.encode("utf-8")).hexdigest()[:12] == key_or_id:
+            if stable_short_digest("sha1", template_id, 12) == key_or_id:
                 return template_id
 
     return str(key_or_id)
@@ -428,7 +437,7 @@ def pro_template_key_for_id(context: ContextTypes.DEFAULT_TYPE, template_id: str
     for key, stored_id in mapping.items():
         if stored_id == template_id:
             return str(key)
-    key = hashlib.sha1(template_id.encode("utf-8")).hexdigest()[:12]
+    key = stable_short_digest("sha1", template_id, 12)
     mapping[key] = template_id
     return key
 
@@ -1169,16 +1178,14 @@ async def _download_custom_git_template(url_with_branch: str) -> Tuple[bool, str
             # Trailing `@` with no branch — drop it so git doesn't treat it as userinfo
             url = base
 
-    tpl_id = "custom_" + hashlib.md5(url_with_branch.encode("utf-8")).hexdigest()[:10]
+    tpl_id = "custom_" + stable_short_digest("md5", url_with_branch, 10)
     target_dir = f"/opt/pcatelegram_web/custom_templates/{tpl_id}"
 
     # Clean previous copy
     if os.path.isdir(target_dir):
         shutil.rmtree(target_dir, ignore_errors=True)
 
-    tmp_dir = f"/tmp/{tpl_id}_clone"
-    if os.path.isdir(tmp_dir):
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    tmp_dir = tempfile.mkdtemp(prefix=f"{tpl_id}_", dir="/tmp")
 
     cmd = ["git", "clone", "--depth", "1"]
     if branch:
@@ -1198,11 +1205,14 @@ async def _download_custom_git_template(url_with_branch: str) -> Tuple[bool, str
                 proc.kill()
             except ProcessLookupError:
                 pass
+            shutil.rmtree(tmp_dir, ignore_errors=True)
             return False, tpl_id, "cg_timeout"
         if proc.returncode != 0:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
             return False, tpl_id, "cg_invalid"
     except Exception as e:
         logger.warning("custom git clone failed: %s", e)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         return False, tpl_id, "cg_invalid"
 
     # Remove .git to enforce size guard and avoid leaking repo history

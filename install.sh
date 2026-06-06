@@ -900,9 +900,9 @@ install_admin_web() {
     chmod 755 "$ADMIN_WEB_DIR/server.py" "$ADMIN_WEB_DIR/static"
     rm -f "$ADMIN_WEB_DIR/token" 2>/dev/null || true
 
-    local python_bin admin_password
+    local python_bin
     python_bin=$(command -v python3)
-    admin_password=$(ensure_admin_web_password)
+    ensure_admin_web_password >/dev/null
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << SVCEOF
 [Unit]
 Description=PCAtelegram_web v${PCATELEGRAM_WEB_VERSION} Local Web Admin
@@ -917,7 +917,6 @@ RestartSec=5
 Environment=PCATELEGRAM_WEB_ADMIN_HOST=$ADMIN_WEB_HOST
 Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
 Environment=PCATELEGRAM_WEB_ADMIN_USER=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
-Environment=PCATELEGRAM_WEB_ADMIN_PASSWORD=$admin_password
 
 [Install]
 WantedBy=multi-user.target

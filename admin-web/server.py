@@ -2190,9 +2190,33 @@ class AdminHandler(BaseHTTPRequestHandler):
         self.send_error_json(401, "unauthorized")
         return False
 
+    def is_https_request(self) -> bool:
+        return (
+            self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+            or self.headers.get("X-Forwarded-Ssl", "").lower() == "on"
+        )
+
+    def send_security_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "base-uri 'none'; "
+            "form-action 'self'; "
+            "frame-ancestors 'none'",
+        )
+
     def send_login_page(self) -> None:
         body = login_page()
         self.send_response(200)
+        self.send_security_headers()
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
@@ -2200,13 +2224,15 @@ class AdminHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def set_session_cookie(self, token: str) -> None:
+        secure = "; Secure" if self.is_https_request() else ""
         self.send_header(
             "Set-Cookie",
-            f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL_SECONDS}",
+            f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax{secure}; Max-Age={SESSION_TTL_SECONDS}",
         )
 
     def clear_session_cookie(self) -> None:
-        self.send_header("Set-Cookie", f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
+        secure = "; Secure" if self.is_https_request() else ""
+        self.send_header("Set-Cookie", f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax{secure}; Max-Age=0")
 
     def credentials_match(self, username: str, password: str) -> bool:
         expected_user, expected_password = load_admin_credentials()
@@ -2227,6 +2253,7 @@ class AdminHandler(BaseHTTPRequestHandler):
         payload = json.dumps({"ok": True, "data": {"user": username}}, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         self.set_session_cookie(token)
+        self.send_security_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(payload)))
@@ -2238,6 +2265,7 @@ class AdminHandler(BaseHTTPRequestHandler):
         body = b'{"ok": true}\n'
         self.send_response(200)
         self.clear_session_cookie()
+        self.send_security_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
@@ -2247,6 +2275,7 @@ class AdminHandler(BaseHTTPRequestHandler):
     def send_json(self, payload: Any, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
+        self.send_security_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
@@ -2255,6 +2284,7 @@ class AdminHandler(BaseHTTPRequestHandler):
 
     def send_bytes(self, body: bytes, content_type: str, status: int = 200) -> None:
         self.send_response(status)
+        self.send_security_headers()
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
@@ -2270,6 +2300,9 @@ class AdminHandler(BaseHTTPRequestHandler):
             raise ValueError("request body too large")
         if length <= 0:
             return {}
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            raise ValueError("content-type must be application/json")
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def require_write_guard(self) -> bool:
@@ -2318,6 +2351,7 @@ class AdminHandler(BaseHTTPRequestHandler):
                 self.send_error_json(503, str(exc))
                 return
             self.send_response(200)
+            self.send_security_headers()
             self.send_header("Content-Type", "image/png")
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Proxy-Link", urllib.parse.quote(link, safe=""))
@@ -2715,6 +2749,7 @@ class AdminHandler(BaseHTTPRequestHandler):
             return
         mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
         self.send_response(200)
+        self.send_security_headers()
         self.send_header("Content-Type", mime)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))

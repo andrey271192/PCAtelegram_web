@@ -55,6 +55,9 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `pcatelegram_web-bot/` | Python Telegram bot |
 | `admin-web/` | локальная web-admin панель |
 | `templates_catalog.json` | каталог HTML-шаблонов |
+| `SECURITY.md` | правила по секретам, web-admin, backup |
+| `CHANGELOG.md` | история изменений |
+| `ROADMAP.md` | ближайшие улучшения |
 
 ## Переменные
 
@@ -93,6 +96,8 @@ http://SERVER:1984/
 sudo cat /root/pcatelegram_web-admin.password
 ```
 
+Пароль хранится в root-only файле. В новых установках он не кладётся в systemd `Environment`.
+
 Для своего пароля передайте env до установки:
 
 ```bash
@@ -100,6 +105,8 @@ PCATELEGRAM_WEB_ADMIN_PASSWORD='strong-password' bash bootstrap.sh
 ```
 
 Без HTTPS Basic Auth гонит пароль открытым текстом. Для постоянного доступа лучше reverse proxy с TLS, но порт `1984` открыт по умолчанию по запросу проекта.
+
+API записи требуют session cookie и заголовок `X-PCAtelegram-Web-Admin: 1`. Ответы web-admin содержат security headers: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`.
 
 ## WARP / WARP+
 

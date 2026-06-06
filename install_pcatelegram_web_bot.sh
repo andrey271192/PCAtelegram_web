@@ -148,7 +148,7 @@ if [ -f "$SCRIPT_DIR/admin-web/server.py" ]; then
     rm -f "$ADMIN_WEB_DIR/token" 2>/dev/null || true
 
     PYTHON_BIN=$(command -v python3)
-    ADMIN_WEB_PASSWORD=$(ensure_admin_web_password)
+    ensure_admin_web_password >/dev/null
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << EOF
 [Unit]
 Description=PCAtelegram_web v2.5.0 Local Web Admin
@@ -163,7 +163,6 @@ RestartSec=5
 Environment=PCATELEGRAM_WEB_ADMIN_HOST=$ADMIN_WEB_HOST
 Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
 Environment=PCATELEGRAM_WEB_ADMIN_USER=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
-Environment=PCATELEGRAM_WEB_ADMIN_PASSWORD=$ADMIN_WEB_PASSWORD
 
 [Install]
 WantedBy=multi-user.target
