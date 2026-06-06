@@ -532,6 +532,8 @@ const state = {
   userTrafficLoading: false,
   backupSchedule: null,
   routing: null,
+  routingDirty: false,
+  routingPreviewMap: null,
   warp: null,
   qrLink: "",
   pendingUsers: new Set(),
@@ -656,7 +658,10 @@ function applyI18n() {
   $("#languageSelect").value = state.lang;
   $("#settingsLanguage").textContent = state.lang === "ru" ? "Русский" : "English";
   $("#settingsTheme").textContent = state.theme === "dark" ? t("darkTheme") : t("lightTheme");
-  $("#visualTitle").textContent = t("visualTitle");
+  const visualPort = state.routingDirty
+    ? (state.routingPreviewMap?.public_port || $("#visualRoutingPort")?.value || state.routing?.port || 443)
+    : (state.overview?.port_map?.public_port || state.routing?.port || 443);
+  $("#visualTitle").textContent = t("visualTitle").replace("{port}", visualPort);
   $("#visualText").textContent = t("visualText");
   updateTrafficControls();
   updateUserTrafficControls();
@@ -921,7 +926,11 @@ function renderOverview() {
   $("#settingsBind").textContent = `${bind.host || "127.0.0.1"}:${bind.port || 1984}`;
   $("#metricMode").textContent = cfg.mode || "--";
   renderSiteStatus();
-  renderPortMap(data.port_map || data.port_443 || {});
+  if (state.routingDirty && state.routingPreviewMap) {
+    renderPortMap(state.routingPreviewMap);
+  } else if (!state.routingDirty) {
+    renderPortMap(data.port_map || data.port_443 || {});
+  }
   $("#metricUsers").textContent = data.users_count ?? 0;
   $("#metricProxyTraffic").textContent = fmtBytes(stats.proxy_bytes);
   $("#metricProxyPackets").textContent = `${stats.proxy_pkts || 0} ${t("packets")}`;
@@ -1458,10 +1467,27 @@ function routingControlPairs() {
 }
 
 function setRoutingControlValues(routing = {}) {
+  if (state.routingDirty) return;
   routingControlPairs().forEach((item) => {
+    if (document.activeElement === item.port || document.activeElement === item.mask) return;
     item.port.value = routing.port || 443;
     item.mask.value = routing.mask_host || "google.com";
   });
+}
+
+function syncRoutingControls(source) {
+  const form = source?.closest?.("form");
+  const port = form?.querySelector('[name="port"]')?.value ?? "";
+  const mask = form?.querySelector('[name="mask_host"]')?.value ?? "";
+  routingControlPairs().forEach((item) => {
+    if (item.port !== source && document.activeElement !== item.port) item.port.value = port;
+    if (item.mask !== source && document.activeElement !== item.mask) item.mask.value = mask;
+  });
+}
+
+function markRoutingDirty(eventObj) {
+  state.routingDirty = true;
+  syncRoutingControls(eventObj.target);
 }
 
 function setRoutingNotes(routing = {}) {
@@ -1476,6 +1502,7 @@ function setRoutingNotes(routing = {}) {
 
 function renderRoutingSettings(payload = null) {
   const routing = payload || state.routing || state.overview?.routing || {};
+  if (state.routingDirty && !payload) return;
   if (!payload) {
     setRoutingControlValues(routing);
   }
@@ -1679,14 +1706,15 @@ async function checkRoutingPort(inputEl = $("#routingPort")) {
   try {
     const data = await api(`/api/routing?port=${encodeURIComponent(port)}`);
     renderRoutingSettings(data);
-    renderPortMap({
+    state.routingPreviewMap = {
       public_port: data.port,
       configured_port: state.routing?.port || state.overview?.routing?.port || data.port,
       listeners: data.listeners || [],
       routes: [],
       ok: data.ok,
       error: data.error,
-    });
+    };
+    renderPortMap(state.routingPreviewMap);
   } catch (err) {
     $("#routingStatus").textContent = t("routingBusy");
     $("#routingStatus").className = "status-pill health-error";
@@ -1714,6 +1742,8 @@ async function saveRoutingSettings(eventObj) {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    state.routingDirty = false;
+    state.routingPreviewMap = null;
     state.routing = data;
     state.overview = await api("/api/overview");
     renderRoutingSettings();
@@ -1997,8 +2027,12 @@ $("#repairStatsBtn").addEventListener("click", repairStats);
 $("#collectStatsBtn").addEventListener("click", collectStats);
 $("#authSettingsForm").addEventListener("submit", updateAuthSettings);
 $("#visualRoutingForm").addEventListener("submit", saveRoutingSettings);
+$("#visualRoutingPort").addEventListener("input", markRoutingDirty);
+$("#visualRoutingMaskHost").addEventListener("input", markRoutingDirty);
 $("#visualRoutingPort").addEventListener("change", (eventObj) => checkRoutingPort(eventObj.target));
 $("#routingSettingsForm").addEventListener("submit", saveRoutingSettings);
+$("#routingPort").addEventListener("input", markRoutingDirty);
+$("#routingMaskHost").addEventListener("input", markRoutingDirty);
 $("#routingPort").addEventListener("change", (eventObj) => checkRoutingPort(eventObj.target));
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
