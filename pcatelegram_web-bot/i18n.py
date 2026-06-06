@@ -1,5 +1,5 @@
 """
-goTelegram Pro v2.5.0 Bot — i18n module
+PCAtelegram_web v2.5.0 Bot — i18n module
 Provides per-user language preferences and a simple t()/tf() API.
 
 Usage:
@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 # ── Paths ─────────────────────────────────────────────────────────────────
 _MODULE_DIR = Path(__file__).resolve().parent
 LANG_DIR = _MODULE_DIR / "lang"
-USER_LANG_FILE = Path("/opt/gotelegram-bot/user_langs.json")
-GOTELEGRAM_CONFIG = Path("/opt/gotelegram/config.json")
-GOTELEGRAM_LANG_MARKER = Path("/opt/gotelegram/.language")
+USER_LANG_FILE = Path("/opt/pcatelegram_web-bot/user_langs.json")
+PCATELEGRAM_WEB_CONFIG = Path("/opt/pcatelegram_web/config.json")
+PCATELEGRAM_WEB_LANG_MARKER = Path("/opt/pcatelegram_web/.language")
 
 # Supported codes; keep in sync with lang/*.json
 SUPPORTED_LANGS = ("en", "ru")
@@ -34,18 +34,18 @@ SUPPORTED_LANGS = ("en", "ru")
 def _detect_default_lang() -> str:
     candidates = []
     try:
-        if GOTELEGRAM_CONFIG.exists():
-            with open(GOTELEGRAM_CONFIG, "r", encoding="utf-8") as f:
+        if PCATELEGRAM_WEB_CONFIG.exists():
+            with open(PCATELEGRAM_WEB_CONFIG, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
                 candidates.extend([data.get("language"), data.get("lang")])
     except Exception as e:
-        logger.warning("failed to read goTelegram Pro language config: %s", e)
+        logger.warning("failed to read PCAtelegram_web language config: %s", e)
     try:
-        if GOTELEGRAM_LANG_MARKER.exists():
-            candidates.append(GOTELEGRAM_LANG_MARKER.read_text(encoding="utf-8").strip()[:2])
+        if PCATELEGRAM_WEB_LANG_MARKER.exists():
+            candidates.append(PCATELEGRAM_WEB_LANG_MARKER.read_text(encoding="utf-8").strip()[:2])
     except Exception as e:
-        logger.warning("failed to read goTelegram Pro language marker: %s", e)
+        logger.warning("failed to read PCAtelegram_web language marker: %s", e)
     candidates.append(os.getenv("BOT_LANG", ""))
     for raw in candidates:
         code = str(raw or "").strip().lower()

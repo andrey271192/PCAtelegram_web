@@ -1,10 +1,10 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — website templates catalog
+# PCAtelegram_web v2.5.0 — website templates catalog
 # Pick from ~1800 templates, preview links, git sparse-checkout downloads,
 # + custom git URL templates (user-supplied public repos)
 
 CATALOG_FILE="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")/templates_catalog.json"
-TEMPLATES_CACHE="/tmp/gotelegram_templates"
+TEMPLATES_CACHE="/tmp/pcatelegram_web_templates"
 
 # Custom git template limits
 CUSTOM_GIT_MAX_SIZE_MB=100

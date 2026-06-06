@@ -1,5 +1,5 @@
 #!/bin/bash
-# stats.sh — Traffic statistics module for GoTelegram v2.5.0
+# stats.sh — Traffic statistics module for PCAtelegram_web v2.5.0
 # Tracks proxy (telemt port 443) and site (nginx port 8443) traffic
 # Uses iptables counters + real-time snapshots + historical CSV
 
@@ -10,12 +10,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-STATS_DIR="/run/gotelegram"
-HISTORY_FILE="/opt/gotelegram/stats_history.csv"
-USER_HISTORY_FILE="/opt/gotelegram/user_stats_history.csv"
+STATS_DIR="/run/pcatelegram_web"
+HISTORY_FILE="/opt/pcatelegram_web/stats_history.csv"
+USER_HISTORY_FILE="/opt/pcatelegram_web/user_stats_history.csv"
 SNAPSHOTS_DIR="$STATS_DIR/snapshots"
 CURRENT_SNAPSHOT="$STATS_DIR/stats_current.json"
-CONFIG_FILE="/opt/gotelegram/config.json"
+CONFIG_FILE="/opt/pcatelegram_web/config.json"
 TELEMT_CONFIG_FILE="/etc/telemt/config.toml"
 STATS_RETENTION_DAYS="${STATS_RETENTION_DAYS:-365}"
 STATS_MINUTE_RETENTION_DAYS="${STATS_MINUTE_RETENTION_DAYS:-31}"
@@ -35,23 +35,23 @@ stats_init() {
     chmod 755 "$STATS_DIR" "$SNAPSHOTS_DIR" 2>/dev/null
 
     # Create iptables chain if not exists
-    if ! iptables -L GOTELEGRAM_STATS -n >/dev/null 2>&1; then
-        iptables -N GOTELEGRAM_STATS 2>/dev/null
+    if ! iptables -L PCATELEGRAM_WEB_STATS -n >/dev/null 2>&1; then
+        iptables -N PCATELEGRAM_WEB_STATS 2>/dev/null
     fi
 
     # Add chain to INPUT if not already present
-    if ! iptables -C INPUT -j GOTELEGRAM_STATS 2>/dev/null; then
-        iptables -I INPUT -j GOTELEGRAM_STATS 2>/dev/null
+    if ! iptables -C INPUT -j PCATELEGRAM_WEB_STATS 2>/dev/null; then
+        iptables -I INPUT -j PCATELEGRAM_WEB_STATS 2>/dev/null
     fi
 
     # Add rule for proxy traffic (port 443, TCP)
-    if ! iptables -C GOTELEGRAM_STATS -p tcp --dport 443 2>/dev/null; then
-        iptables -A GOTELEGRAM_STATS -p tcp --dport 443 2>/dev/null
+    if ! iptables -C PCATELEGRAM_WEB_STATS -p tcp --dport 443 2>/dev/null; then
+        iptables -A PCATELEGRAM_WEB_STATS -p tcp --dport 443 2>/dev/null
     fi
 
     # Add rule for site traffic (loopback, port 8443, TCP)
-    if ! iptables -C GOTELEGRAM_STATS -i lo -p tcp --dport 8443 2>/dev/null; then
-        iptables -A GOTELEGRAM_STATS -i lo -p tcp --dport 8443 2>/dev/null
+    if ! iptables -C PCATELEGRAM_WEB_STATS -i lo -p tcp --dport 8443 2>/dev/null; then
+        iptables -A PCATELEGRAM_WEB_STATS -i lo -p tcp --dport 8443 2>/dev/null
     fi
 
     # Initialize CSV header if file doesn't exist
@@ -81,7 +81,7 @@ stats_collect() {
 
     # Parse iptables output: format is "pkts bytes target"
     # We need to extract bytes (2nd column) for each rule
-    local iptables_output=$(iptables -L GOTELEGRAM_STATS -v -n -x 2>/dev/null)
+    local iptables_output=$(iptables -L PCATELEGRAM_WEB_STATS -v -n -x 2>/dev/null)
 
     # Extract counters for port 443 (proxy)
     proxy_bytes=$(echo "$iptables_output" | grep "dpt:443" | grep -v "lo" | awk '{print $2}')
@@ -140,7 +140,7 @@ EOF
 }
 
 # Print active telemt usernames from [access.users]. Usernames are restricted by
-# goTelegram to A-Z/a-z/0-9/_.- so they are safe in URLs and CSV fields.
+# PCAtelegram_web to A-Z/a-z/0-9/_.- so they are safe in URLs and CSV fields.
 stats_active_users() {
     [[ -f "$TELEMT_CONFIG_FILE" ]] || return 0
     awk '
@@ -478,9 +478,9 @@ toggle_stats() {
         fi
 
         # Remove iptables rules
-        iptables -D INPUT -j GOTELEGRAM_STATS 2>/dev/null
-        iptables -F GOTELEGRAM_STATS 2>/dev/null
-        iptables -X GOTELEGRAM_STATS 2>/dev/null
+        iptables -D INPUT -j PCATELEGRAM_WEB_STATS 2>/dev/null
+        iptables -F PCATELEGRAM_WEB_STATS 2>/dev/null
+        iptables -X PCATELEGRAM_WEB_STATS 2>/dev/null
 
         # Clean up directories
         rm -rf "$STATS_DIR" 2>/dev/null
@@ -504,7 +504,7 @@ toggle_stats() {
 
 # Install systemd service for stats collection
 install_stats_collector() {
-    local service_file="/etc/systemd/system/gotelegram-stats.service"
+    local service_file="/etc/systemd/system/pcatelegram_web-stats.service"
 
     # Check if running as root
     if [[ $EUID -ne 0 ]]; then
@@ -527,14 +527,14 @@ install_stats_collector() {
     # Create systemd service file
     cat > "$service_file" <<'EOF'
 [Unit]
-Description=goTelegram Pro Traffic Stats Collector
+Description=PCAtelegram_web Traffic Stats Collector
 After=network.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/bin/bash -c 'source /opt/gotelegram/lib/common.sh; source /opt/gotelegram/lib/stats.sh; stats_init; while true; do stats_collect; sleep 1; done'
+ExecStart=/bin/bash -c 'source /opt/pcatelegram_web/lib/common.sh; source /opt/pcatelegram_web/lib/stats.sh; stats_init; while true; do stats_collect; sleep 1; done'
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -546,8 +546,8 @@ EOF
 
     chmod 644 "$service_file"
     systemctl daemon-reload
-    systemctl enable gotelegram-stats.service
-    systemctl restart gotelegram-stats.service
+    systemctl enable pcatelegram_web-stats.service
+    systemctl restart pcatelegram_web-stats.service
 
     if [[ -f "$CONFIG_FILE" ]] && command -v jq &>/dev/null; then
         local tmp
@@ -560,7 +560,7 @@ EOF
         fi
     fi
 
-    echo "Сервис gotelegram-stats установлен и запущен" >&2
+    echo "Сервис pcatelegram_web-stats установлен и запущен" >&2
 }
 
 # Remove stats collector service
@@ -570,15 +570,15 @@ remove_stats_collector() {
         return 1
     fi
 
-    systemctl stop gotelegram-stats.service 2>/dev/null
-    systemctl disable gotelegram-stats.service 2>/dev/null
-    rm -f /etc/systemd/system/gotelegram-stats.service
+    systemctl stop pcatelegram_web-stats.service 2>/dev/null
+    systemctl disable pcatelegram_web-stats.service 2>/dev/null
+    rm -f /etc/systemd/system/pcatelegram_web-stats.service
     systemctl daemon-reload
 
     # Remove iptables rules
-    iptables -D INPUT -j GOTELEGRAM_STATS 2>/dev/null
-    iptables -F GOTELEGRAM_STATS 2>/dev/null
-    iptables -X GOTELEGRAM_STATS 2>/dev/null
+    iptables -D INPUT -j PCATELEGRAM_WEB_STATS 2>/dev/null
+    iptables -F PCATELEGRAM_WEB_STATS 2>/dev/null
+    iptables -X PCATELEGRAM_WEB_STATS 2>/dev/null
 
     # Clean up directories and files
     rm -rf "$STATS_DIR" 2>/dev/null

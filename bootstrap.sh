@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# GoTelegram Pro — bootstrap installer from this repository.
+# PCAtelegram_web — bootstrap installer from this repository.
 set -euo pipefail
 
-GOTELEGRAM_BASE="${GOTELEGRAM_BASE:-https://raw.githubusercontent.com/andrey271192/gotelegram/main}"
-INSTALL_DIR="${GOTELEGRAM_INSTALL_DIR:-/opt/gotelegram}"
+PCATELEGRAM_WEB_BASE="${PCATELEGRAM_WEB_BASE:-https://raw.githubusercontent.com/andrey271192/PCAtelegram_web/main}"
+INSTALL_DIR="${PCATELEGRAM_WEB_INSTALL_DIR:-/opt/pcatelegram_web}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,13 +23,13 @@ for cmd in curl jq; do
 done
 
 FILES=(
-  "install.sh" "install_gotelegram_bot.sh" "templates_catalog.json"
+  "install.sh" "install_pcatelegram_web_bot.sh" "templates_catalog.json"
   "lib/common.sh" "lib/telemt.sh" "lib/telemt_config.sh" "lib/backup.sh"
   "lib/website.sh" "lib/templates_catalog.sh" "lib/stats.sh" "lib/i18n.sh"
   "lib/lang/en.sh" "lib/lang/ru.sh"
-  "gotelegram-bot/bot.py" "gotelegram-bot/i18n.py"
-  "gotelegram-bot/lang/en.json" "gotelegram-bot/lang/ru.json"
-  "gotelegram-bot/config.example.env" "gotelegram-bot/requirements.txt" "gotelegram-bot/README.md"
+  "pcatelegram_web-bot/bot.py" "pcatelegram_web-bot/i18n.py"
+  "pcatelegram_web-bot/lang/en.json" "pcatelegram_web-bot/lang/ru.json"
+  "pcatelegram_web-bot/config.example.env" "pcatelegram_web-bot/requirements.txt" "pcatelegram_web-bot/README.md"
   "admin-web/server.py" "admin-web/static/index.html" "admin-web/static/styles.css" "admin-web/static/app.js"
 )
 
@@ -45,7 +45,7 @@ download_file() {
 
   mkdir -p "$(dirname "$local_path")"
   for attempt in 1 2 3; do
-    http_code=$(curl -sL "${curl_headers[@]}" -w "%{http_code}" -o "$local_path" "${GOTELEGRAM_BASE%/}/${remote_path}" 2>/dev/null || echo "000")
+    http_code=$(curl -sL "${curl_headers[@]}" -w "%{http_code}" -o "$local_path" "${PCATELEGRAM_WEB_BASE%/}/${remote_path}" 2>/dev/null || echo "000")
     if [ "$http_code" = "200" ]; then
       return 0
     fi
@@ -56,8 +56,8 @@ download_file() {
   return 1
 }
 
-echo -e "  ${CYAN}↻${NC} Загрузка GoTelegram из ${GOTELEGRAM_BASE%/}..."
-mkdir -p "${INSTALL_DIR}/lib/lang" "${INSTALL_DIR}/gotelegram-bot/lang" "${INSTALL_DIR}/admin-web/static"
+echo -e "  ${CYAN}↻${NC} Загрузка PCAtelegram_web из ${PCATELEGRAM_WEB_BASE%/}..."
+mkdir -p "${INSTALL_DIR}/lib/lang" "${INSTALL_DIR}/pcatelegram_web-bot/lang" "${INSTALL_DIR}/admin-web/static"
 
 failed=0
 for f in "${FILES[@]}"; do
@@ -69,10 +69,10 @@ for f in "${FILES[@]}"; do
 done
 [ "$failed" -eq 0 ] || exit 1
 
-chmod +x "${INSTALL_DIR}/install.sh" "${INSTALL_DIR}/install_gotelegram_bot.sh"
+chmod +x "${INSTALL_DIR}/install.sh" "${INSTALL_DIR}/install_pcatelegram_web_bot.sh"
 chmod +x "${INSTALL_DIR}"/lib/*.sh
 chmod +x "${INSTALL_DIR}/admin-web/server.py" 2>/dev/null || true
-sed -i 's/\r$//' "${INSTALL_DIR}/install.sh" "${INSTALL_DIR}/install_gotelegram_bot.sh" "${INSTALL_DIR}"/lib/*.sh "${INSTALL_DIR}"/lib/lang/*.sh 2>/dev/null || true
-ln -sf "${INSTALL_DIR}/install.sh" /usr/local/bin/gotelegram
+sed -i 's/\r$//' "${INSTALL_DIR}/install.sh" "${INSTALL_DIR}/install_pcatelegram_web_bot.sh" "${INSTALL_DIR}"/lib/*.sh "${INSTALL_DIR}"/lib/lang/*.sh 2>/dev/null || true
+ln -sf "${INSTALL_DIR}/install.sh" /usr/local/bin/pcatelegram_web
 
 exec bash "${INSTALL_DIR}/install.sh" "$@"

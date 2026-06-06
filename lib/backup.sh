@@ -1,5 +1,5 @@
 #!/bin/bash
-# goTelegram Pro v2.5.0 — backup and restore (i18n-aware)
+# PCAtelegram_web v2.5.0 — backup and restore (i18n-aware)
 
 # ── Создание бекапа ──────────────────────────────────────────────────────────
 create_backup() {
@@ -12,9 +12,9 @@ create_backup() {
     mkdir -p "$output_dir"
     while true; do
         if [ "$suffix" -eq 0 ]; then
-            backup_name="gotelegram_backup_${timestamp}"
+            backup_name="pcatelegram_web_backup_${timestamp}"
         else
-            backup_name="gotelegram_backup_${timestamp}_${suffix}"
+            backup_name="pcatelegram_web_backup_${timestamp}_${suffix}"
         fi
         tmp_dir="/tmp/${backup_name}"
         if [ ! -e "$tmp_dir" ] && \
@@ -34,20 +34,20 @@ create_backup() {
         cp "$TELEMT_CONFIG" "$tmp_dir/config.toml"
     fi
 
-    # goTelegram Pro конфиг
-    if [ -f "$GOTELEGRAM_CONFIG" ]; then
-        cp "$GOTELEGRAM_CONFIG" "$tmp_dir/gotelegram.json"
+    # PCAtelegram_web конфиг
+    if [ -f "$PCATELEGRAM_WEB_CONFIG" ]; then
+        cp "$PCATELEGRAM_WEB_CONFIG" "$tmp_dir/pcatelegram_web.json"
     fi
-    if [ -f "$GOTELEGRAM_DIR/disabled_users.json" ]; then
-        cp "$GOTELEGRAM_DIR/disabled_users.json" "$tmp_dir/disabled_users.json" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/disabled_users.json" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/disabled_users.json" "$tmp_dir/disabled_users.json" 2>/dev/null
     fi
-    if [ -f "$GOTELEGRAM_DIR/backup_schedule.json" ]; then
-        cp "$GOTELEGRAM_DIR/backup_schedule.json" "$tmp_dir/backup_schedule.json" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/backup_schedule.json" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/backup_schedule.json" "$tmp_dir/backup_schedule.json" 2>/dev/null
     fi
 
     # Language marker (i18n)
-    if [ -f "$GOTELEGRAM_DIR/.language" ]; then
-        cp "$GOTELEGRAM_DIR/.language" "$tmp_dir/.language"
+    if [ -f "$PCATELEGRAM_WEB_DIR/.language" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/.language" "$tmp_dir/.language"
     fi
 
     # nginx конфиг (stealth mode)
@@ -76,12 +76,12 @@ create_backup() {
     fi
 
     # Custom templates and catalog
-    if [ -d "$GOTELEGRAM_DIR/custom_templates" ]; then
+    if [ -d "$PCATELEGRAM_WEB_DIR/custom_templates" ]; then
         mkdir -p "$tmp_dir/custom_templates"
-        cp -a "$GOTELEGRAM_DIR/custom_templates/." "$tmp_dir/custom_templates/" 2>/dev/null
+        cp -a "$PCATELEGRAM_WEB_DIR/custom_templates/." "$tmp_dir/custom_templates/" 2>/dev/null
     fi
-    if [ -f "$GOTELEGRAM_DIR/templates_catalog.json" ]; then
-        cp "$GOTELEGRAM_DIR/templates_catalog.json" "$tmp_dir/templates_catalog.json" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/templates_catalog.json" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/templates_catalog.json" "$tmp_dir/templates_catalog.json" 2>/dev/null
     fi
 
     # Bot state (.env has BotFather token, so encrypted backups are strongly recommended)
@@ -100,14 +100,14 @@ create_backup() {
     fi
 
     # Traffic history
-    if [ -f "$GOTELEGRAM_DIR/stats_history.csv" ]; then
-        cp "$GOTELEGRAM_DIR/stats_history.csv" "$tmp_dir/stats_history.csv" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/stats_history.csv" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/stats_history.csv" "$tmp_dir/stats_history.csv" 2>/dev/null
     fi
-    if [ -f "$GOTELEGRAM_DIR/user_stats_history.csv" ]; then
-        cp "$GOTELEGRAM_DIR/user_stats_history.csv" "$tmp_dir/user_stats_history.csv" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/user_stats_history.csv" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/user_stats_history.csv" "$tmp_dir/user_stats_history.csv" 2>/dev/null
     fi
-    if [ -f "$GOTELEGRAM_DIR/shared-443.json" ]; then
-        cp "$GOTELEGRAM_DIR/shared-443.json" "$tmp_dir/shared-443.json" 2>/dev/null
+    if [ -f "$PCATELEGRAM_WEB_DIR/shared-443.json" ]; then
+        cp "$PCATELEGRAM_WEB_DIR/shared-443.json" "$tmp_dir/shared-443.json" 2>/dev/null
     fi
 
     # Метаданные
@@ -124,7 +124,7 @@ create_backup() {
     cat > "$tmp_dir/metadata.json" << EOMETA
 {
     "backup_version": "1.6",
-    "gotelegram_version": "$GOTELEGRAM_VERSION",
+    "pcatelegram_web_version": "$PCATELEGRAM_WEB_VERSION",
     "created_at": "$(date -Iseconds)",
     "hostname": "$(hostname)",
     "ip": "$ip",
@@ -201,7 +201,7 @@ restore_backup() {
         return 1
     fi
 
-    local tmp_dir="/tmp/gotelegram_restore_$$"
+    local tmp_dir="/tmp/pcatelegram_web_restore_$$"
     mkdir -p "$tmp_dir"
 
     # Расшифровываем если нужно
@@ -212,7 +212,7 @@ restore_backup() {
             read -rs password
             echo ""
         fi
-        tar_file="/tmp/gotelegram_restore_$$.tar.gz"
+        tar_file="/tmp/pcatelegram_web_restore_$$.tar.gz"
         openssl enc -aes-256-cbc -d -pbkdf2 -in "$backup_file" -out "$tar_file" -pass "pass:${password}" 2>/dev/null
         if [ $? -ne 0 ]; then
             log_error "$(_t_or backup_bad_pass 'Неверный пароль или повреждённый файл')"
@@ -233,25 +233,25 @@ restore_backup() {
 
     # Находим папку бекапа
     local backup_dir
-    backup_dir=$(find "$tmp_dir" -maxdepth 1 -type d -name "gotelegram_backup_*" | head -1)
+    backup_dir=$(find "$tmp_dir" -maxdepth 1 -type d -name "pcatelegram_web_backup_*" | head -1)
     [ -z "$backup_dir" ] && backup_dir="$tmp_dir"
 
     # Legacy bot backups before v2.5.0 stored absolute paths directly in tar:
-    # opt/gotelegram/config.json and etc/telemt/config.toml.
+    # opt/pcatelegram_web/config.json and etc/telemt/config.toml.
     if [ ! -f "$backup_dir/config.toml" ] && [ -f "$tmp_dir/etc/telemt/config.toml" ]; then
         cp "$tmp_dir/etc/telemt/config.toml" "$backup_dir/config.toml" 2>/dev/null || true
     fi
-    if [ ! -f "$backup_dir/gotelegram.json" ] && [ -f "$tmp_dir/opt/gotelegram/config.json" ]; then
-        cp "$tmp_dir/opt/gotelegram/config.json" "$backup_dir/gotelegram.json" 2>/dev/null || true
+    if [ ! -f "$backup_dir/pcatelegram_web.json" ] && [ -f "$tmp_dir/opt/pcatelegram_web/config.json" ]; then
+        cp "$tmp_dir/opt/pcatelegram_web/config.json" "$backup_dir/pcatelegram_web.json" 2>/dev/null || true
     fi
-    if [ ! -f "$backup_dir/disabled_users.json" ] && [ -f "$tmp_dir/opt/gotelegram/disabled_users.json" ]; then
-        cp "$tmp_dir/opt/gotelegram/disabled_users.json" "$backup_dir/disabled_users.json" 2>/dev/null || true
+    if [ ! -f "$backup_dir/disabled_users.json" ] && [ -f "$tmp_dir/opt/pcatelegram_web/disabled_users.json" ]; then
+        cp "$tmp_dir/opt/pcatelegram_web/disabled_users.json" "$backup_dir/disabled_users.json" 2>/dev/null || true
     fi
 
     # Проверяем метаданные
     if [ -f "$backup_dir/metadata.json" ]; then
         local bk_version bk_mode bk_ip bk_lang bk_date
-        bk_version=$(jq -r '.gotelegram_version // "unknown"' "$backup_dir/metadata.json")
+        bk_version=$(jq -r '.pcatelegram_web_version // "unknown"' "$backup_dir/metadata.json")
         bk_mode=$(jq -r '.mode // "unknown"' "$backup_dir/metadata.json")
         bk_ip=$(jq -r '.ip // "unknown"' "$backup_dir/metadata.json")
         bk_lang=$(jq -r '.language // "-"' "$backup_dir/metadata.json")
@@ -280,24 +280,24 @@ restore_backup() {
         log_success "$(_t_or backup_restored_telemt 'telemt конфиг восстановлен')"
     fi
 
-    # Восстанавливаем goTelegram Pro конфиг
-    if [ -f "$backup_dir/gotelegram.json" ]; then
-        mkdir -p "$GOTELEGRAM_DIR"
-        cp "$backup_dir/gotelegram.json" "$GOTELEGRAM_CONFIG"
-        log_success "$(_t_or backup_restored_gotelegram 'GoTelegram конфиг восстановлен')"
+    # Восстанавливаем PCAtelegram_web конфиг
+    if [ -f "$backup_dir/pcatelegram_web.json" ]; then
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$backup_dir/pcatelegram_web.json" "$PCATELEGRAM_WEB_CONFIG"
+        log_success "$(_t_or backup_restored_pcatelegram_web 'PCAtelegram_web конфиг восстановлен')"
     fi
     if [ -f "$backup_dir/disabled_users.json" ]; then
-        mkdir -p "$GOTELEGRAM_DIR"
-        cp "$backup_dir/disabled_users.json" "$GOTELEGRAM_DIR/disabled_users.json"
-        chmod 600 "$GOTELEGRAM_DIR/disabled_users.json" 2>/dev/null || true
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$backup_dir/disabled_users.json" "$PCATELEGRAM_WEB_DIR/disabled_users.json"
+        chmod 600 "$PCATELEGRAM_WEB_DIR/disabled_users.json" 2>/dev/null || true
     fi
     if [ -f "$backup_dir/backup_schedule.json" ]; then
-        mkdir -p "$GOTELEGRAM_DIR"
-        cp "$backup_dir/backup_schedule.json" "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null
-        chmod 600 "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null || true
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$backup_dir/backup_schedule.json" "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null
+        chmod 600 "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null || true
         if command -v jq >/dev/null 2>&1; then
             local restored_schedule
-            restored_schedule=$(jq -r '.frequency // "off"' "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null || echo "off")
+            restored_schedule=$(jq -r '.frequency // "off"' "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null || echo "off")
             case "$restored_schedule" in
                 off|daily|weekly|monthly) set_backup_schedule "$restored_schedule" >/dev/null 2>&1 || true ;;
             esac
@@ -306,8 +306,8 @@ restore_backup() {
 
     # Восстанавливаем language marker (i18n)
     if [ -f "$backup_dir/.language" ]; then
-        mkdir -p "$GOTELEGRAM_DIR"
-        cp "$backup_dir/.language" "$GOTELEGRAM_DIR/.language"
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$backup_dir/.language" "$PCATELEGRAM_WEB_DIR/.language"
         log_success "$(_t_or backup_restored_lang 'Язык интерфейса восстановлен')"
     fi
 
@@ -347,23 +347,23 @@ restore_backup() {
 
     # Восстанавливаем custom templates/catalog/statistics
     if [ -d "$backup_dir/custom_templates" ]; then
-        mkdir -p "$GOTELEGRAM_DIR/custom_templates"
-        cp -a "$backup_dir/custom_templates/." "$GOTELEGRAM_DIR/custom_templates/" 2>/dev/null
+        mkdir -p "$PCATELEGRAM_WEB_DIR/custom_templates"
+        cp -a "$backup_dir/custom_templates/." "$PCATELEGRAM_WEB_DIR/custom_templates/" 2>/dev/null
         log_success "Пользовательские шаблоны восстановлены"
     fi
     if [ -f "$backup_dir/templates_catalog.json" ]; then
-        cp "$backup_dir/templates_catalog.json" "$GOTELEGRAM_DIR/templates_catalog.json" 2>/dev/null
+        cp "$backup_dir/templates_catalog.json" "$PCATELEGRAM_WEB_DIR/templates_catalog.json" 2>/dev/null
     fi
     if [ -f "$backup_dir/stats_history.csv" ]; then
-        cp "$backup_dir/stats_history.csv" "$GOTELEGRAM_DIR/stats_history.csv" 2>/dev/null
+        cp "$backup_dir/stats_history.csv" "$PCATELEGRAM_WEB_DIR/stats_history.csv" 2>/dev/null
         log_success "История статистики восстановлена"
     fi
     if [ -f "$backup_dir/user_stats_history.csv" ]; then
-        cp "$backup_dir/user_stats_history.csv" "$GOTELEGRAM_DIR/user_stats_history.csv" 2>/dev/null
+        cp "$backup_dir/user_stats_history.csv" "$PCATELEGRAM_WEB_DIR/user_stats_history.csv" 2>/dev/null
         log_success "История статистики пользователей восстановлена"
     fi
     if [ -f "$backup_dir/shared-443.json" ]; then
-        cp "$backup_dir/shared-443.json" "$GOTELEGRAM_DIR/shared-443.json" 2>/dev/null
+        cp "$backup_dir/shared-443.json" "$PCATELEGRAM_WEB_DIR/shared-443.json" 2>/dev/null
     fi
 
     # Восстанавливаем состояние бота
@@ -392,8 +392,8 @@ restore_backup() {
         start_telemt
     fi
     command -v nginx &>/dev/null && systemctl start nginx 2>/dev/null
-    systemctl restart gotelegram-bot 2>/dev/null || true
-    systemctl restart gotelegram-admin 2>/dev/null || true
+    systemctl restart pcatelegram_web-bot 2>/dev/null || true
+    systemctl restart pcatelegram_web-admin 2>/dev/null || true
 
     # Очистка
     rm -rf "$tmp_dir"
@@ -469,43 +469,43 @@ set_backup_schedule() {
         return 1
     fi
 
-    mkdir -p "$GOTELEGRAM_DIR" "$BACKUP_DIR"
+    mkdir -p "$PCATELEGRAM_WEB_DIR" "$BACKUP_DIR"
 
     if [ "$frequency" = "off" ]; then
-        systemctl disable --now gotelegram-backup.timer >/dev/null 2>&1 || true
-        rm -f /etc/systemd/system/gotelegram-backup.timer /etc/systemd/system/gotelegram-backup.service
+        systemctl disable --now pcatelegram_web-backup.timer >/dev/null 2>&1 || true
+        rm -f /etc/systemd/system/pcatelegram_web-backup.timer /etc/systemd/system/pcatelegram_web-backup.service
         systemctl daemon-reload >/dev/null 2>&1 || true
     else
-        cat > /etc/systemd/system/gotelegram-backup.service << 'EOSVC'
+        cat > /etc/systemd/system/pcatelegram_web-backup.service << 'EOSVC'
 [Unit]
-Description=goTelegram Pro backup
+Description=PCAtelegram_web backup
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=GOTELEGRAM_BACKUP_KEEP=30
-ExecStart=/bin/bash -lc 'source /opt/gotelegram/lib/common.sh; source /opt/gotelegram/lib/i18n.sh; source /opt/gotelegram/lib/telemt.sh; source /opt/gotelegram/lib/website.sh; source /opt/gotelegram/lib/backup.sh; load_language "$(detect_language 2>/dev/null || echo en)"; create_backup ""; cleanup_old_backups "${GOTELEGRAM_BACKUP_KEEP:-30}"'
+Environment=PCATELEGRAM_WEB_BACKUP_KEEP=30
+ExecStart=/bin/bash -lc 'source /opt/pcatelegram_web/lib/common.sh; source /opt/pcatelegram_web/lib/i18n.sh; source /opt/pcatelegram_web/lib/telemt.sh; source /opt/pcatelegram_web/lib/website.sh; source /opt/pcatelegram_web/lib/backup.sh; load_language "$(detect_language 2>/dev/null || echo en)"; create_backup ""; cleanup_old_backups "${PCATELEGRAM_WEB_BACKUP_KEEP:-30}"'
 EOSVC
 
-        cat > /etc/systemd/system/gotelegram-backup.timer << EOTIMER
+        cat > /etc/systemd/system/pcatelegram_web-backup.timer << EOTIMER
 [Unit]
-Description=goTelegram Pro scheduled backup
+Description=PCAtelegram_web scheduled backup
 
 [Timer]
 OnCalendar=$calendar
 Persistent=true
 RandomizedDelaySec=15m
-Unit=gotelegram-backup.service
+Unit=pcatelegram_web-backup.service
 
 [Install]
 WantedBy=timers.target
 EOTIMER
         systemctl daemon-reload >/dev/null 2>&1 || return 1
-        systemctl enable --now gotelegram-backup.timer >/dev/null 2>&1 || return 1
+        systemctl enable --now pcatelegram_web-backup.timer >/dev/null 2>&1 || return 1
     fi
 
-    cat > "$GOTELEGRAM_DIR/backup_schedule.json" << EOSCHEDULE
+    cat > "$PCATELEGRAM_WEB_DIR/backup_schedule.json" << EOSCHEDULE
 {
     "frequency": "$frequency",
     "calendar": "$calendar",
@@ -513,19 +513,19 @@ EOTIMER
     "updated_at": "$(date -Iseconds)"
 }
 EOSCHEDULE
-    chmod 600 "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null || true
+    chmod 600 "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null || true
     log_success "Backup schedule: $frequency"
     echo "$frequency"
 }
 
 backup_schedule_status() {
     local frequency="off" calendar=""
-    if [ -f "$GOTELEGRAM_DIR/backup_schedule.json" ] && command -v jq >/dev/null 2>&1; then
-        frequency=$(jq -r '.frequency // "off"' "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null || echo "off")
-        calendar=$(jq -r '.calendar // ""' "$GOTELEGRAM_DIR/backup_schedule.json" 2>/dev/null || echo "")
+    if [ -f "$PCATELEGRAM_WEB_DIR/backup_schedule.json" ] && command -v jq >/dev/null 2>&1; then
+        frequency=$(jq -r '.frequency // "off"' "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null || echo "off")
+        calendar=$(jq -r '.calendar // ""' "$PCATELEGRAM_WEB_DIR/backup_schedule.json" 2>/dev/null || echo "")
     fi
     echo "frequency=$frequency calendar=$calendar"
-    systemctl list-timers gotelegram-backup.timer --no-pager 2>/dev/null || true
+    systemctl list-timers pcatelegram_web-backup.timer --no-pager 2>/dev/null || true
 }
 
 # ── Интерактивный бекап ──────────────────────────────────────────────────────

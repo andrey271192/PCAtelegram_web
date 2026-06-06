@@ -86,7 +86,7 @@ const i18n = {
     backupScheduleTitle: "Automatic backups",
     backupScheduleLoading: "Loading schedule...",
     backupIncludesTitle: "Backup contents",
-    backupIncludesText: "telemt config, goTelegram settings, keys, disabled keys, site, templates, SSL certificates, bot, admin panel and traffic history.",
+    backupIncludesText: "telemt config, PCAtelegram_web settings, keys, disabled keys, site, templates, SSL certificates, bot, admin panel and traffic history.",
     scheduleOff: "Off",
     scheduleDaily: "Daily",
     scheduleWeekly: "Weekly",
@@ -210,7 +210,7 @@ const i18n = {
     ariaTrafficRange: "Traffic range",
     ariaTrafficView: "Traffic view",
     promoEyebrow: "Promo",
-    promoTitle: "Support goTelegram Pro",
+    promoTitle: "Support PCAtelegram_web",
     promoHosting1: "Hosting #1",
     promoHosting2: "Hosting #2",
     promoTips: "Tips",
@@ -313,7 +313,7 @@ const i18n = {
     backupScheduleTitle: "Автобекапы",
     backupScheduleLoading: "Загрузка расписания...",
     backupIncludesTitle: "Что входит в бекап",
-    backupIncludesText: "конфиг telemt, настройки goTelegram, ключи, отключённые ключи, сайт, шаблоны, SSL-сертификаты, бот, админка и история трафика.",
+    backupIncludesText: "конфиг telemt, настройки PCAtelegram_web, ключи, отключённые ключи, сайт, шаблоны, SSL-сертификаты, бот, админка и история трафика.",
     scheduleOff: "Выкл",
     scheduleDaily: "Каждый день",
     scheduleWeekly: "Каждую неделю",
@@ -437,7 +437,7 @@ const i18n = {
     ariaTrafficRange: "Период трафика",
     ariaTrafficView: "Вид трафика",
     promoEyebrow: "Промо",
-    promoTitle: "Поддержать goTelegram Pro",
+    promoTitle: "Поддержать PCAtelegram_web",
     promoHosting1: "Хостинг #1",
     promoHosting2: "Хостинг #2",
     promoTips: "Чаевые",
@@ -478,7 +478,7 @@ const state = {
   qrLink: "",
   pendingUsers: new Set(),
   refreshingAll: false,
-  autoRefreshEnabled: localStorage.getItem("gotelegram-auto-refresh") !== "0",
+  autoRefreshEnabled: localStorage.getItem("pcatelegram_web-auto-refresh") !== "0",
 };
 
 const t = (key) => (i18n[state.lang] && i18n[state.lang][key]) || i18n.en[key] || key;
@@ -562,7 +562,7 @@ function syncAutoRefreshTimer() {
 
 function setAutoRefresh(enabled) {
   state.autoRefreshEnabled = Boolean(enabled);
-  localStorage.setItem("gotelegram-auto-refresh", state.autoRefreshEnabled ? "1" : "0");
+  localStorage.setItem("pcatelegram_web-auto-refresh", state.autoRefreshEnabled ? "1" : "0");
   updateAutoRefreshToggle();
   syncAutoRefreshTimer();
 }
@@ -570,7 +570,7 @@ function setAutoRefresh(enabled) {
 async function api(path, options = {}) {
   const headers = {
     "Accept": "application/json",
-    "X-GoTelegram-Admin": "1",
+    "X-PCAtelegram-Web-Admin": "1",
     ...(options.headers || {}),
   };
   if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
@@ -610,7 +610,7 @@ function applyI18n() {
 function setTheme(theme) {
   state.theme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = state.theme;
-  localStorage.setItem("gotelegram-theme", state.theme);
+  localStorage.setItem("pcatelegram_web-theme", state.theme);
   applyI18n();
   if (state.overview) renderStats();
   if (state.userTraffic) renderUserTraffic();
@@ -691,9 +691,9 @@ function renderServices(services = {}) {
   const items = [
     { key: "telemt", label: "telemt", api: "telemt" },
     { key: "nginx", label: "nginx", api: "nginx" },
-    { key: "bot", label: "bot", api: "gotelegram-bot" },
-    { key: "stats", label: "stats", api: "gotelegram-stats" },
-    { key: "admin", label: "admin", api: "gotelegram-admin" },
+    { key: "bot", label: "bot", api: "pcatelegram_web-bot" },
+    { key: "stats", label: "stats", api: "pcatelegram_web-stats" },
+    { key: "admin", label: "admin", api: "pcatelegram_web-admin" },
   ];
   $("#services").innerHTML = items.map((item) => {
     const status = services[item.key] || "unknown";
@@ -1639,7 +1639,7 @@ async function copyText(value) {
 }
 
 function maybeShowPromo() {
-  const key = "gotelegram-promo-last";
+  const key = "pcatelegram_web-promo-last";
   const now = Math.floor(Date.now() / 1000);
   const last = Number(localStorage.getItem(key) || 0);
   if (now - last < 86400) return;

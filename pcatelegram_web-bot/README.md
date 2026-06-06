@@ -1,4 +1,4 @@
-# goTelegram Pro v2.5.0 Bot
+# PCAtelegram_web v2.5.0 Bot
 
 Production-quality Telegram bot for managing MTProxy (telemt engine) on Linux servers.
 
@@ -34,10 +34,10 @@ Production-quality Telegram bot for managing MTProxy (telemt engine) on Linux se
 Recommended installation path is the main CLI menu:
 
 ```bash
-gotelegram
+pcatelegram_web
 ```
 
-Then choose `12) Telegram-bot` → install/update. On repeat goTelegram Pro bootstrap/update, an already installed bot is refreshed automatically: code, i18n files and requirements are copied to `/opt/gotelegram-bot`, `.env` is preserved, dependencies are checked and `gotelegram-bot` is restarted.
+Then choose `12) Telegram-bot` → install/update. On repeat PCAtelegram_web bootstrap/update, an already installed bot is refreshed automatically: code, i18n files and requirements are copied to `/opt/pcatelegram_web-bot`, `.env` is preserved, dependencies are checked and `pcatelegram_web-bot` is restarted.
 
 ### Prerequisites
 
@@ -76,16 +76,16 @@ For systemd service:
 
 ```bash
 [Unit]
-Description=goTelegram Pro Bot
+Description=PCAtelegram_web Bot
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/gotelegram-bot
-ExecStart=/opt/gotelegram-bot/venv/bin/python /opt/gotelegram-bot/bot.py
+WorkingDirectory=/opt/pcatelegram_web-bot
+ExecStart=/opt/pcatelegram_web-bot/venv/bin/python /opt/pcatelegram_web-bot/bot.py
 Restart=always
 RestartSec=5
-Environment=PATH=/opt/gotelegram-bot/venv/bin:/usr/bin
+Environment=PATH=/opt/pcatelegram_web-bot/venv/bin:/usr/bin
 
 [Install]
 WantedBy=multi-user.target
@@ -97,17 +97,17 @@ WantedBy=multi-user.target
 
 - `BOT_TOKEN` - Telegram bot token (required)
 - `ALLOWED_IDS` - Comma-separated user IDs (optional, all users allowed if empty)
-- `BOT_LANG` - Default language inherited from goTelegram Pro install language
+- `BOT_LANG` - Default language inherited from PCAtelegram_web install language
 
 ### System Paths
 
-- `GOTELEGRAM_CONFIG` - `/opt/gotelegram/config.json`
+- `PCATELEGRAM_WEB_CONFIG` - `/opt/pcatelegram_web/config.json`
 - `TELEMT_CONFIG` - `/etc/telemt/config.toml`
 - `TELEMT_SERVICE` - `telemt` (systemd service name)
-- `WEBSITE_ROOT` - `/var/www/gotelegram-site`
-- `BACKUP_DIR` - `/opt/gotelegram/backups`
-- `BACKUP_SCHEDULE_FILE` - `/opt/gotelegram/backup_schedule.json`
-- `TEMPLATES_CATALOG` - `/opt/gotelegram/templates_catalog.json`
+- `WEBSITE_ROOT` - `/var/www/pcatelegram_web-site`
+- `BACKUP_DIR` - `/opt/pcatelegram_web/backups`
+- `BACKUP_SCHEDULE_FILE` - `/opt/pcatelegram_web/backup_schedule.json`
+- `TEMPLATES_CATALOG` - `/opt/pcatelegram_web/templates_catalog.json`
 
 ## Architecture
 
@@ -158,4 +158,4 @@ code, stdout, stderr = await sh("command", "arg1", "arg2")
 
 ## License
 
-goTelegram Pro v2.5.0 - Open source community project
+PCAtelegram_web v2.5.0 - Open source community project

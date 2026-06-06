@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — Управление telemt binary
+# PCAtelegram_web v2.5.0 — Управление telemt binary
 # Скачивание, обновление, запуск, остановка через systemd
 
 TELEMT_GITHUB="telemt/telemt"
@@ -159,7 +159,7 @@ install_telemt_service() {
 
     cat > "/etc/systemd/system/${TELEMT_SERVICE}.service" << EOF
 [Unit]
-Description=goTelegram Pro MTProxy (telemt engine)
+Description=PCAtelegram_web MTProxy (telemt engine)
 Documentation=https://github.com/telemt/telemt
 After=network-online.target
 Wants=network-online.target

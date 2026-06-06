@@ -1,6 +1,6 @@
 #!/bin/bash
 # ══════════════════════════════════════════════════════════════════════════════
-# goTelegram Pro v2.5.0 — MTProxy powered by telemt (Rust + Tokio)
+# PCAtelegram_web v2.5.0 — MTProxy powered by telemt (Rust + Tokio)
 # Anti-DPI • Fake TLS • TCP Splice • JA3/JA4 Resistance • i18n (EN/RU)
 #
 # Install:
@@ -46,7 +46,7 @@ show_main_menu() {
     # ── Header (no right border — ANSI breaks alignment) ──
     echo ""
     echo -e "  ${BOLD}${CYAN}━${line}━${NC}"
-    echo -e "  ${BOLD}${WHITE} goTelegram Pro v${GOTELEGRAM_VERSION}${NC}  ${DIM}— $(t dashboard_title)${NC}"
+    echo -e "  ${BOLD}${WHITE} PCAtelegram_web v${PCATELEGRAM_WEB_VERSION}${NC}  ${DIM}— $(t dashboard_title)${NC}"
     echo -e "  ${BOLD}${CYAN}━${line}━${NC}"
 
     # ── Service health ──
@@ -239,7 +239,7 @@ menu_version() {
     echo ""
     echo -e "  ${BOLD}${WHITE}$(t version_title)${NC}"
     echo -e "  ${DIM}$(printf '─%.0s' {1..54})${NC}"
-    echo -e "  ${WHITE}$(t version_label)${NC}   v${GOTELEGRAM_VERSION}"
+    echo -e "  ${WHITE}$(t version_label)${NC}   v${PCATELEGRAM_WEB_VERSION}"
     echo -e "  ${WHITE}$(t version_engine)${NC}         telemt (Rust + Tokio)"
     echo -e "  ${WHITE}$(t version_tech)${NC}   Anti-DPI, Fake TLS, TCP Splice"
     echo -e "  ${WHITE}$(t version_license)${NC}     MIT"
@@ -248,21 +248,21 @@ menu_version() {
 
 # ── Upgrade migration ────────────────────────────────────────────────────────
 snapshot_preupgrade_state() {
-    local marker="$GOTELEGRAM_DIR/.preupgrade_${GOTELEGRAM_VERSION}_done"
+    local marker="$PCATELEGRAM_WEB_DIR/.preupgrade_${PCATELEGRAM_WEB_VERSION}_done"
     [ -f "$marker" ] && return 0
     mkdir -p "$BACKUP_DIR"
 
     local ts tmp archive
     ts=$(date +%Y%m%d_%H%M%S)
-    tmp="/tmp/gotelegram_preupgrade_${ts}"
-    archive="$BACKUP_DIR/preupgrade_${GOTELEGRAM_VERSION}_${ts}.tar.gz"
+    tmp="/tmp/pcatelegram_web_preupgrade_${ts}"
+    archive="$BACKUP_DIR/preupgrade_${PCATELEGRAM_WEB_VERSION}_${ts}.tar.gz"
     mkdir -p "$tmp"
 
-    [ -f "$GOTELEGRAM_CONFIG" ] && mkdir -p "$tmp/opt/gotelegram" && cp "$GOTELEGRAM_CONFIG" "$tmp/opt/gotelegram/config.json" 2>/dev/null
+    [ -f "$PCATELEGRAM_WEB_CONFIG" ] && mkdir -p "$tmp/opt/pcatelegram_web" && cp "$PCATELEGRAM_WEB_CONFIG" "$tmp/opt/pcatelegram_web/config.json" 2>/dev/null
     [ -f "$TELEMT_CONFIG" ] && mkdir -p "$tmp/etc/telemt" && cp "$TELEMT_CONFIG" "$tmp/etc/telemt/config.toml" 2>/dev/null
-    [ -f "$NGINX_SITE_CONF" ] && mkdir -p "$tmp/etc/nginx/sites-available" && cp "$NGINX_SITE_CONF" "$tmp/etc/nginx/sites-available/gotelegram" 2>/dev/null
-    [ -d "$WEBSITE_ROOT" ] && mkdir -p "$tmp/var/www/gotelegram-site" && cp -a "$WEBSITE_ROOT/." "$tmp/var/www/gotelegram-site/" 2>/dev/null
-    [ -f "$BOT_DIR/.env" ] && mkdir -p "$tmp/opt/gotelegram-bot" && cp "$BOT_DIR/.env" "$tmp/opt/gotelegram-bot/.env" 2>/dev/null
+    [ -f "$NGINX_SITE_CONF" ] && mkdir -p "$tmp/etc/nginx/sites-available" && cp "$NGINX_SITE_CONF" "$tmp/etc/nginx/sites-available/pcatelegram_web" 2>/dev/null
+    [ -d "$WEBSITE_ROOT" ] && mkdir -p "$tmp/var/www/pcatelegram_web-site" && cp -a "$WEBSITE_ROOT/." "$tmp/var/www/pcatelegram_web-site/" 2>/dev/null
+    [ -f "$BOT_DIR/.env" ] && mkdir -p "$tmp/opt/pcatelegram_web-bot" && cp "$BOT_DIR/.env" "$tmp/opt/pcatelegram_web-bot/.env" 2>/dev/null
 
     if tar czf "$archive" -C "$tmp" . 2>/dev/null; then
         log_dim "Pre-upgrade snapshot: $archive"
@@ -278,8 +278,8 @@ read_config_or_default() {
 
 detect_deployed_template_id() {
     local tpl=""
-    if [ -f "$WEBSITE_ROOT/.gotelegram_template_id" ]; then
-        tpl=$(head -1 "$WEBSITE_ROOT/.gotelegram_template_id" 2>/dev/null || echo "")
+    if [ -f "$WEBSITE_ROOT/.pcatelegram_web_template_id" ]; then
+        tpl=$(head -1 "$WEBSITE_ROOT/.pcatelegram_web_template_id" 2>/dev/null || echo "")
         [ -n "$tpl" ] && { echo "$tpl"; return 0; }
     fi
     if [ -d "$WEBSITE_ROOT" ] && [ -f "$WEBSITE_ROOT/index.html" ]; then
@@ -293,15 +293,15 @@ detect_deployed_template_id() {
 
 detect_template_source() {
     local src
-    if [ -f "$WEBSITE_ROOT/.gotelegram_template_source" ]; then
-        src=$(head -1 "$WEBSITE_ROOT/.gotelegram_template_source" 2>/dev/null || echo "")
+    if [ -f "$WEBSITE_ROOT/.pcatelegram_web_template_source" ]; then
+        src=$(head -1 "$WEBSITE_ROOT/.pcatelegram_web_template_source" 2>/dev/null || echo "")
         [ -n "$src" ] && { echo "$src"; return 0; }
     fi
     [ -d "$WEBSITE_ROOT" ] && [ -f "$WEBSITE_ROOT/index.html" ] && return 0
     read_config_or_default template_source ""
 }
 
-write_normalized_gotelegram_config() {
+write_normalized_pcatelegram_web_config() {
     local mode="$1" port="$2" secret="$3" mask_host="$4" domain="$5" tpl_id="$6" tpl_source="$7"
     local lang installed_at stats_enabled tmp
     lang=$(read_config_or_default language "$(get_language 2>/dev/null || echo en)")
@@ -310,7 +310,7 @@ write_normalized_gotelegram_config() {
     tmp=$(mktemp) || return 1
 
     jq -n \
-        --arg version "$GOTELEGRAM_VERSION" \
+        --arg version "$PCATELEGRAM_WEB_VERSION" \
         --arg engine "telemt" \
         --arg mode "$mode" \
         --argjson port "$port" \
@@ -340,22 +340,22 @@ write_normalized_gotelegram_config() {
         + (if $stats_enabled == "true" then {stats_enabled: true} elif $stats_enabled == "false" then {stats_enabled: false} else {} end)' \
         > "$tmp" || { rm -f "$tmp"; return 1; }
 
-    mkdir -p "$(dirname "$GOTELEGRAM_CONFIG")"
-    mv "$tmp" "$GOTELEGRAM_CONFIG"
-    chmod 600 "$GOTELEGRAM_CONFIG"
+    mkdir -p "$(dirname "$PCATELEGRAM_WEB_CONFIG")"
+    mv "$tmp" "$PCATELEGRAM_WEB_CONFIG"
+    chmod 600 "$PCATELEGRAM_WEB_CONFIG"
 }
 
 auto_migrate_legacy_state() {
-    local marker="$GOTELEGRAM_DIR/.migrated_${GOTELEGRAM_VERSION}"
+    local marker="$PCATELEGRAM_WEB_DIR/.migrated_${PCATELEGRAM_WEB_VERSION}"
     local current_version
     current_version=$(read_config_or_default version "")
-    if [ -f "$marker" ] && [ "$current_version" = "$GOTELEGRAM_VERSION" ]; then
+    if [ -f "$marker" ] && [ "$current_version" = "$PCATELEGRAM_WEB_VERSION" ]; then
         return 0
     fi
 
-    [ -f "$TELEMT_CONFIG" ] || [ -f "$GOTELEGRAM_CONFIG" ] || [ -d "$WEBSITE_ROOT" ] || return 0
+    [ -f "$TELEMT_CONFIG" ] || [ -f "$PCATELEGRAM_WEB_CONFIG" ] || [ -d "$WEBSITE_ROOT" ] || return 0
 
-    log_step "Миграция состояния goTelegram Pro"
+    log_step "Миграция состояния PCAtelegram_web"
     snapshot_preupgrade_state
 
     local mode port secret mask_host domain mask_port tpl_id tpl_source users_block tls_emulation changed=0 users_block_needs_write=0
@@ -405,14 +405,14 @@ auto_migrate_legacy_state() {
     tpl_id=$(detect_deployed_template_id)
     tpl_source=$(detect_template_source || echo "")
     if [ -d "$WEBSITE_ROOT" ] && [ -f "$WEBSITE_ROOT/index.html" ] && [ -n "$tpl_id" ]; then
-        echo "$tpl_id" > "$WEBSITE_ROOT/.gotelegram_template_id" 2>/dev/null || true
-        [ -n "$tpl_source" ] && echo "$tpl_source" > "$WEBSITE_ROOT/.gotelegram_template_source" 2>/dev/null || true
+        echo "$tpl_id" > "$WEBSITE_ROOT/.pcatelegram_web_template_id" 2>/dev/null || true
+        [ -n "$tpl_source" ] && echo "$tpl_source" > "$WEBSITE_ROOT/.pcatelegram_web_template_source" 2>/dev/null || true
     fi
 
     if [ -f "$TELEMT_CONFIG" ]; then
         if ! grep -q '\[server.api\]' "$TELEMT_CONFIG" 2>/dev/null || \
            ! grep -q 'metrics_listen' "$TELEMT_CONFIG" 2>/dev/null || \
-           ! grep -q "goTelegram Pro v${GOTELEGRAM_VERSION}" "$TELEMT_CONFIG" 2>/dev/null; then
+           ! grep -q "PCAtelegram_web v${PCATELEGRAM_WEB_VERSION}" "$TELEMT_CONFIG" 2>/dev/null; then
             generate_telemt_toml "$secret" "$port" "$mode" "$mask_host" "$mask_port" "$TELEMT_CONFIG" >&2
             replace_telemt_users_block "$users_block" "$TELEMT_CONFIG"
             changed=1
@@ -423,7 +423,7 @@ auto_migrate_legacy_state() {
         fi
     fi
 
-    write_normalized_gotelegram_config "$mode" "$port" "$secret" "$mask_host" "$domain" "$tpl_id" "$tpl_source" || \
+    write_normalized_pcatelegram_web_config "$mode" "$port" "$secret" "$mask_host" "$domain" "$tpl_id" "$tpl_source" || \
         log_warning "Не удалось нормализовать config.json"
 
     if [ "$changed" = "1" ] && systemctl is-active --quiet "$TELEMT_SERVICE" 2>/dev/null; then
@@ -520,15 +520,15 @@ install_lite_mode() {
     # Start
     start_telemt || return
 
-    # Save goTelegram Pro config
-    save_gotelegram_config "telemt" "lite" "$port" "$secret" "$domain" "" ""
+    # Save PCAtelegram_web config
+    save_pcatelegram_web_config "telemt" "lite" "$port" "$secret" "$domain" "" ""
 
     # Credits
     show_credits
 
     # Result
     show_proxy_info
-    log_success "$(tf install_done "$GOTELEGRAM_VERSION" "Lite")"
+    log_success "$(tf install_done "$PCATELEGRAM_WEB_VERSION" "Lite")"
 }
 
 # ── Pro mode ────────────────────────────────────────────────────────────────
@@ -620,12 +620,12 @@ install_pro_mode() {
     # Save config
     local tpl_id
     tpl_id=$(basename "$template_dir")
-    save_gotelegram_config "telemt" "pro" "443" "$raw_secret" "$user_domain" "$user_domain" "$tpl_id"
+    save_pcatelegram_web_config "telemt" "pro" "443" "$raw_secret" "$user_domain" "$user_domain" "$tpl_id"
 
     # Result — use domain and fake-TLS link
     show_proxy_info_pro "$user_domain" "$faketls_secret"
     echo -e "  ${WHITE}$(t svc_site):${NC} ${GREEN}https://${user_domain}${NC}"
-    log_success "$(tf install_done "$GOTELEGRAM_VERSION" "Pro")"
+    log_success "$(tf install_done "$PCATELEGRAM_WEB_VERSION" "Pro")"
 }
 
 # ── Статус ───────────────────────────────────────────────────────────────────
@@ -699,7 +699,7 @@ menu_share() {
     echo ""
     echo -e "  ${BOLD}$(t share_title)${NC}"
     echo ""
-    printf "$(t share_line1)\n" "$GOTELEGRAM_VERSION"
+    printf "$(t share_line1)\n" "$PCATELEGRAM_WEB_VERSION"
     echo ""
     printf "$(t share_server)\n" "$server_display"
     printf "$(t share_port)\n" "$port"
@@ -842,7 +842,7 @@ menu_remove() {
             if [ "$mode" = "pro" ]; then
                 remove_pro_mode
             fi
-            rm -f "$GOTELEGRAM_CONFIG"
+            rm -f "$PCATELEGRAM_WEB_CONFIG"
             log_success "$(t remove_proxy_done)"
             ;;
         2)
@@ -861,7 +861,7 @@ menu_remove() {
             if [ "$mode" = "pro" ]; then
                 remove_pro_mode
             fi
-            rm -f "$GOTELEGRAM_CONFIG"
+            rm -f "$PCATELEGRAM_WEB_CONFIG"
             # Bot
             if [ "$(bot_service_status)" != "not_installed" ]; then
                 systemctl stop "$BOT_SERVICE" 2>/dev/null
@@ -877,8 +877,8 @@ menu_remove() {
 }
 
 # ── Telegram-бот ────────────────────────────────────────────────────────────
-BOT_DIR="/opt/gotelegram-bot"
-BOT_SERVICE="gotelegram-bot"
+BOT_DIR="/opt/pcatelegram_web-bot"
+BOT_SERVICE="pcatelegram_web-bot"
 
 admin_web_service_status() {
     if ! systemctl list-unit-files "$ADMIN_WEB_SERVICE.service" &>/dev/null 2>&1; then
@@ -906,7 +906,7 @@ install_admin_web() {
     python_bin=$(command -v python3)
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << SVCEOF
 [Unit]
-Description=goTelegram Pro v${GOTELEGRAM_VERSION} Local Web Admin
+Description=PCAtelegram_web v${PCATELEGRAM_WEB_VERSION} Local Web Admin
 After=network.target
 
 [Service]
@@ -915,8 +915,8 @@ WorkingDirectory=$ADMIN_WEB_DIR
 ExecStart=$python_bin $ADMIN_WEB_DIR/server.py
 Restart=always
 RestartSec=5
-Environment=GOTELEGRAM_ADMIN_HOST=$ADMIN_WEB_HOST
-Environment=GOTELEGRAM_ADMIN_PORT=$ADMIN_WEB_PORT
+Environment=PCATELEGRAM_WEB_ADMIN_HOST=$ADMIN_WEB_HOST
+Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
 
 [Install]
 WantedBy=multi-user.target
@@ -964,20 +964,20 @@ bot_service_status() {
 }
 
 auto_update_bot_if_possible() {
-    [ -d "$SCRIPT_DIR/gotelegram-bot" ] || return 0
+    [ -d "$SCRIPT_DIR/pcatelegram_web-bot" ] || return 0
     [ "$(bot_service_status)" = "not_installed" ] && return 0
     [ -f "$BOT_DIR/.env" ] || return 0
 
     local needs_update=0
-    [ -f "$SCRIPT_DIR/gotelegram-bot/bot.py" ] && \
-        ! cmp -s "$SCRIPT_DIR/gotelegram-bot/bot.py" "$BOT_DIR/bot.py" && needs_update=1
-    [ -f "$SCRIPT_DIR/gotelegram-bot/i18n.py" ] && \
-        ! cmp -s "$SCRIPT_DIR/gotelegram-bot/i18n.py" "$BOT_DIR/i18n.py" && needs_update=1
-    [ -f "$SCRIPT_DIR/gotelegram-bot/requirements.txt" ] && \
-        ! cmp -s "$SCRIPT_DIR/gotelegram-bot/requirements.txt" "$BOT_DIR/requirements.txt" && needs_update=1
+    [ -f "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" ] && \
+        ! cmp -s "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" "$BOT_DIR/bot.py" && needs_update=1
+    [ -f "$SCRIPT_DIR/pcatelegram_web-bot/i18n.py" ] && \
+        ! cmp -s "$SCRIPT_DIR/pcatelegram_web-bot/i18n.py" "$BOT_DIR/i18n.py" && needs_update=1
+    [ -f "$SCRIPT_DIR/pcatelegram_web-bot/requirements.txt" ] && \
+        ! cmp -s "$SCRIPT_DIR/pcatelegram_web-bot/requirements.txt" "$BOT_DIR/requirements.txt" && needs_update=1
 
     local lang_file lang_name
-    for lang_file in "$SCRIPT_DIR"/gotelegram-bot/lang/*.json; do
+    for lang_file in "$SCRIPT_DIR"/pcatelegram_web-bot/lang/*.json; do
         [ -e "$lang_file" ] || continue
         lang_name=$(basename "$lang_file")
         ! cmp -s "$lang_file" "$BOT_DIR/lang/$lang_name" && needs_update=1
@@ -1101,27 +1101,27 @@ bot_install() {
 
     # Copy bot files
     mkdir -p "$BOT_DIR"
-    if [ -f "$SCRIPT_DIR/gotelegram-bot/bot.py" ]; then
-        cp "$SCRIPT_DIR/gotelegram-bot/bot.py" "$BOT_DIR/"
-        cp "$SCRIPT_DIR/gotelegram-bot/requirements.txt" "$BOT_DIR/"
-        [ -f "$SCRIPT_DIR/gotelegram-bot/config.example.env" ] && \
-            cp "$SCRIPT_DIR/gotelegram-bot/config.example.env" "$BOT_DIR/"
+    if [ -f "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" ]; then
+        cp "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" "$BOT_DIR/"
+        cp "$SCRIPT_DIR/pcatelegram_web-bot/requirements.txt" "$BOT_DIR/"
+        [ -f "$SCRIPT_DIR/pcatelegram_web-bot/config.example.env" ] && \
+            cp "$SCRIPT_DIR/pcatelegram_web-bot/config.example.env" "$BOT_DIR/"
         # Copy i18n language files for bot
-        if [ -d "$SCRIPT_DIR/gotelegram-bot/lang" ]; then
+        if [ -d "$SCRIPT_DIR/pcatelegram_web-bot/lang" ]; then
             mkdir -p "$BOT_DIR/lang"
-            cp -f "$SCRIPT_DIR/gotelegram-bot/lang/"*.json "$BOT_DIR/lang/" 2>/dev/null
+            cp -f "$SCRIPT_DIR/pcatelegram_web-bot/lang/"*.json "$BOT_DIR/lang/" 2>/dev/null
         fi
-        [ -f "$SCRIPT_DIR/gotelegram-bot/i18n.py" ] && \
-            cp "$SCRIPT_DIR/gotelegram-bot/i18n.py" "$BOT_DIR/"
+        [ -f "$SCRIPT_DIR/pcatelegram_web-bot/i18n.py" ] && \
+            cp "$SCRIPT_DIR/pcatelegram_web-bot/i18n.py" "$BOT_DIR/"
     else
-        log_error "$(tf bot_files_not_found "$SCRIPT_DIR/gotelegram-bot/")"
+        log_error "$(tf bot_files_not_found "$SCRIPT_DIR/pcatelegram_web-bot/")"
         return 1
     fi
 
     # Templates catalog — skip if source and dest are the same file (symlink install case)
     if [ -f "$SCRIPT_DIR/templates_catalog.json" ]; then
         local src_tc="$SCRIPT_DIR/templates_catalog.json"
-        local dst_tc="$GOTELEGRAM_DIR/templates_catalog.json"
+        local dst_tc="$PCATELEGRAM_WEB_DIR/templates_catalog.json"
         if [ "$(readlink -f "$src_tc" 2>/dev/null)" != "$(readlink -f "$dst_tc" 2>/dev/null)" ]; then
             cp "$src_tc" "$dst_tc"
         fi
@@ -1217,7 +1217,7 @@ bot_install() {
     # Systemd
     cat > "/etc/systemd/system/${BOT_SERVICE}.service" << SVCEOF
 [Unit]
-Description=goTelegram Pro v${GOTELEGRAM_VERSION} Telegram Bot
+Description=PCAtelegram_web v${PCATELEGRAM_WEB_VERSION} Telegram Bot
 After=network.target
 
 [Service]
@@ -1407,7 +1407,7 @@ bot_remove() {
 _promo_block() {
     # Print a promo section without width-fragile box borders (i18n safe)
     local line2; line2=$(printf '─%.0s' {1..54})
-    local youtube_link="${GOTELEGRAM_YOUTUBE_LINK:-}"
+    local youtube_link="${PCATELEGRAM_WEB_YOUTUBE_LINK:-}"
     echo ""
     echo -e "  ${DIM}${line2}${NC}"
     echo -e "  ${BOLD}${YELLOW}$(t promo_host1_title)${NC}"
@@ -1437,7 +1437,7 @@ menu_promo() {
 
 # ── Проверка: показывать ли промо (раз в сутки) ────────────────────────────
 should_show_promo() {
-    local stamp_file="$GOTELEGRAM_DIR/.promo_last_shown"
+    local stamp_file="$PCATELEGRAM_WEB_DIR/.promo_last_shown"
     if [ ! -f "$stamp_file" ]; then
         return 0  # никогда не показывали
     fi
@@ -1452,8 +1452,8 @@ should_show_promo() {
 }
 
 mark_promo_shown() {
-    mkdir -p "$GOTELEGRAM_DIR"
-    date +%s > "$GOTELEGRAM_DIR/.promo_last_shown"
+    mkdir -p "$PCATELEGRAM_WEB_DIR"
+    date +%s > "$PCATELEGRAM_WEB_DIR/.promo_last_shown"
 }
 
 _promo_qr() {
@@ -1473,7 +1473,7 @@ show_promo_with_qr() {
         _promo_qr "$(t promo_qr_host1)" "https://vk.cc/ct29NQ"
         _promo_qr "$(t promo_qr_host2)" "https://vk.cc/cUxAhj"
         _promo_qr "$(t promo_qr_tips)" "https://pay.cloudtips.ru/p/7410814f"
-        _promo_qr "$(t promo_qr_youtube)" "${GOTELEGRAM_YOUTUBE_LINK:-}"
+        _promo_qr "$(t promo_qr_youtube)" "${PCATELEGRAM_WEB_YOUTUBE_LINK:-}"
     fi
 
     mark_promo_shown
@@ -1489,10 +1489,10 @@ show_promo_with_qr() {
 # ── First-run: pick language ─────────────────────────────────────────────────
 first_run_language_picker() {
     # Show picker only if language not yet saved
-    local marker="${GOTELEGRAM_DIR:-/opt/gotelegram}/.language"
+    local marker="${PCATELEGRAM_WEB_DIR:-/opt/pcatelegram_web}/.language"
     local cfg_lang=""
-    if [ -f "$GOTELEGRAM_CONFIG" ] && command -v jq >/dev/null 2>&1; then
-        cfg_lang=$(jq -r '.language // empty' "$GOTELEGRAM_CONFIG" 2>/dev/null)
+    if [ -f "$PCATELEGRAM_WEB_CONFIG" ] && command -v jq >/dev/null 2>&1; then
+        cfg_lang=$(jq -r '.language // empty' "$PCATELEGRAM_WEB_CONFIG" 2>/dev/null)
     fi
     if [ -f "$marker" ] || [ -n "$cfg_lang" ]; then
         return 0
@@ -1524,8 +1524,8 @@ menu_language() {
 # Non-interactive action dispatcher (bot / CI / scripting interface)
 # ══════════════════════════════════════════════════════════════════════════════
 # Usage examples:
-#   gotelegram --action=change-template --template=th_ariclaw --json
-#   gotelegram --action=change-lite-domain --domain=google.com --json
+#   pcatelegram_web --action=change-template --template=th_ariclaw --json
+#   pcatelegram_web --action=change-lite-domain --domain=google.com --json
 #
 # Rules for action handlers:
 #  - Only JSON may be written to stdout (the caller parses it).
@@ -1558,7 +1558,7 @@ bot_emit_json() {
 bot_update_config_field() {
     local key="$1"
     local value="$2"
-    if [ ! -f "$GOTELEGRAM_CONFIG" ]; then
+    if [ ! -f "$PCATELEGRAM_WEB_CONFIG" ]; then
         return 1
     fi
     local tmp now
@@ -1566,9 +1566,9 @@ bot_update_config_field() {
     now=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)
     if jq --arg k "$key" --arg v "$value" --arg t "$now" \
         '.[$k] = $v | .updated_at = $t' \
-        "$GOTELEGRAM_CONFIG" > "$tmp" 2>/dev/null; then
-        mv "$tmp" "$GOTELEGRAM_CONFIG"
-        chmod 600 "$GOTELEGRAM_CONFIG"
+        "$PCATELEGRAM_WEB_CONFIG" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$PCATELEGRAM_WEB_CONFIG"
+        chmod 600 "$PCATELEGRAM_WEB_CONFIG"
         return 0
     fi
     rm -f "$tmp"
@@ -1713,7 +1713,7 @@ bot_action_change_lite_domain() {
 # parallel `change-lite-domain` calls raced on the jq-rewrite of config.json
 # and one process would see a truncated file ("no secret in config").
 bot_action_dispatch() {
-    local lock_file="/var/lock/gotelegram-bot-action.lock"
+    local lock_file="/var/lock/pcatelegram_web-bot-action.lock"
     # Make sure /var/lock exists (it does on Debian/Ubuntu; be defensive for minimal images)
     [ -d /var/lock ] || mkdir -p /var/lock 2>/dev/null || true
 

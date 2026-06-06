@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — Управление сайтом (nginx + certbot + шаблоны)
+# PCAtelegram_web v2.5.0 — Управление сайтом (nginx + certbot + шаблоны)
 
 # ── Установка nginx ──────────────────────────────────────────────────────────
 install_nginx() {
@@ -39,7 +39,7 @@ generate_nginx_config() {
     mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
     cat > "$NGINX_SITE_CONF" << 'EONGINX'
-# GoTelegram v2.5.0 — nginx config
+# PCAtelegram_web v2.5.0 — nginx config
 # Pro: nginx на 127.0.0.1:8443 (внутренний), telemt на 0.0.0.0:443 (внешний)
 # Обычный браузер → :443 → telemt → 127.0.0.1:8443 → nginx (сайт)
 
@@ -88,7 +88,7 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     # Корень сайта
-    root /var/www/gotelegram-site;
+    root /var/www/pcatelegram_web-site;
     index index.html;
 
     location / {
@@ -127,7 +127,7 @@ generate_nginx_temp_config() {
     local domain="$1"
 
     cat > "$NGINX_SITE_CONF" << EONGINX_TEMP
-# GoTelegram — временный конфиг (до получения SSL)
+# PCAtelegram_web — временный конфиг (до получения SSL)
 server {
     listen 80;
     listen [::]:80;
@@ -138,7 +138,7 @@ server {
         allow all;
     }
 
-    root /var/www/gotelegram-site;
+    root /var/www/pcatelegram_web-site;
     index index.html;
 
     location / {
@@ -257,8 +257,8 @@ deploy_template_to_nginx() {
     mkdir -p "$WEBSITE_ROOT"
     cp -a "$template_dir/." "$WEBSITE_ROOT/"
     rm -f "$WEBSITE_ROOT/.custom_git_source" 2>/dev/null || true
-    echo "$template_id" > "$WEBSITE_ROOT/.gotelegram_template_id" 2>/dev/null || true
-    [ -n "$source_url" ] && echo "$source_url" > "$WEBSITE_ROOT/.gotelegram_template_source" 2>/dev/null || true
+    echo "$template_id" > "$WEBSITE_ROOT/.pcatelegram_web_template_id" 2>/dev/null || true
+    [ -n "$source_url" ] && echo "$source_url" > "$WEBSITE_ROOT/.pcatelegram_web_template_source" 2>/dev/null || true
     chown -R www-data:www-data "$WEBSITE_ROOT" 2>/dev/null || chown -R nginx:nginx "$WEBSITE_ROOT" 2>/dev/null
     chmod -R 755 "$WEBSITE_ROOT"
 

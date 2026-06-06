@@ -6,7 +6,7 @@
   "lang_saved": "Language saved: %s",
   "lang_choose": "Choose your language:",
 
-  "welcome_title": "goTelegram Pro v%s",
+  "welcome_title": "PCAtelegram_web v%s",
   "welcome_subtitle": "🤖 MTProxy Management Bot",
   "welcome_powered": "Powered by telemt engine",
   "welcome_prompt": "Select an action from the menu below:",
@@ -17,7 +17,7 @@
   "btn_no": "❌ No",
 
   "access_denied": "⛔ Access denied.\nYour ID: <code>%s</code>",
-  "help_title": "goTelegram Pro Bot — Commands",
+  "help_title": "PCAtelegram_web Bot — Commands",
   "help_lines": "/start — Main menu\n/help — This help\n/status — Quick status\n/logs — Latest logs\n/lang — Change language\n/addadmin ID — Add admin\n/deladmin ID — Remove admin\n\nUse the menu buttons for other operations.",
 
   "menu_install": "⚙️ Install",

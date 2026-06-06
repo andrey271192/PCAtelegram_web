@@ -1,5 +1,5 @@
 #!/bin/bash
-# goTelegram Pro v2.5.0 — English translations
+# PCAtelegram_web v2.5.0 — English translations
 # shellcheck disable=SC2034,SC2148
 
 # ── Common words ────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ I18N[success]="Done"
 I18N[wait]="Please wait..."
 
 # ── Banner ──────────────────────────────────────────────────────────────
-I18N[banner_title]="goTelegram Pro v%s"
+I18N[banner_title]="PCAtelegram_web v%s"
 I18N[banner_subtitle]="MTProxy powered by telemt (Rust + Tokio)"
 I18N[banner_features]="Anti-DPI • Fake TLS • TCP Splice • JA3/JA4"
 I18N[credits_title]="Credits / Thanks"
@@ -75,7 +75,7 @@ I18N[submenu_about_title]="ℹ️  ABOUT"
 I18N[about_version_info]="Version info"
 I18N[about_promo]="Promo / Donate"
 I18N[version_title]="🔍 Information"
-I18N[version_label]="goTelegram Pro:"
+I18N[version_label]="PCAtelegram_web:"
 I18N[version_engine]="Engine:"
 I18N[version_tech]="Technology:"
 I18N[version_license]="License:"
@@ -106,7 +106,7 @@ I18N[install_cfg_mode]="Mode:"
 I18N[install_cfg_domain]="Domain:"
 I18N[install_confirm_proxy]="Install proxy?"
 I18N[install_confirm_proxy_site]="Install proxy + website?"
-I18N[install_done]="goTelegram Pro v%s installed! (%s mode)"
+I18N[install_done]="PCAtelegram_web v%s installed! (%s mode)"
 I18N[install_arch_desc1]="telemt accepts all traffic on 443 (HTTPS masquerade)"
 I18N[install_arch_desc2]="nginx serves the site on internal port %s"
 I18N[install_arch_desc3]="ISP only sees HTTPS traffic to %s:443"
@@ -125,7 +125,7 @@ I18N[logs_telemt_title]="📋 telemt logs (last %s lines):"
 # ── Link / Share ────────────────────────────────────────────────────────
 I18N[link_title]="🔗 Connection link:"
 I18N[share_title]="📤 Forward this message:"
-I18N[share_line1]="🔐 MTProxy for Telegram (goTelegram Pro v%s)"
+I18N[share_line1]="🔐 MTProxy for Telegram (PCAtelegram_web v%s)"
 I18N[share_server]="🌍 Server: %s"
 I18N[share_port]="🔌 Port: %s"
 I18N[share_connect_cta]="👉 Connect with one tap:"
@@ -141,7 +141,7 @@ I18N[website_restart_nginx]="Restart nginx"
 I18N[website_change_template]="Change template"
 
 # ── Remove ──────────────────────────────────────────────────────────────
-I18N[remove_title]="🗑  Remove goTelegram Pro"
+I18N[remove_title]="🗑  Remove PCAtelegram_web"
 I18N[remove_proxy_only]="Remove proxy only (telemt)"
 I18N[remove_bot_only]="Remove Telegram bot only"
 I18N[remove_all]="Remove everything (proxy + bot + settings)"
@@ -151,7 +151,7 @@ I18N[remove_backup_before]="Create a backup before removal?"
 I18N[remove_warn_all]="This will remove EVERYTHING: proxy, bot, site, settings."
 I18N[remove_confirm_all]="Are you absolutely sure?"
 I18N[remove_proxy_done]="Proxy removed"
-I18N[remove_all_done]="goTelegram Pro fully removed (proxy + bot)"
+I18N[remove_all_done]="PCAtelegram_web fully removed (proxy + bot)"
 
 # ── Telegram bot submenu ────────────────────────────────────────────────
 I18N[bot_title]="🤖 Telegram bot"
@@ -332,7 +332,7 @@ I18N[backup_lang_label]="Language"
 I18N[backup_date_label]="Date"
 I18N[backup_confirm_restore]="Restore configuration? Current settings will be overwritten."
 I18N[backup_restored_telemt]="telemt config restored"
-I18N[backup_restored_gotelegram]="goTelegram Pro config restored"
+I18N[backup_restored_pcatelegram_web]="PCAtelegram_web config restored"
 I18N[backup_restored_lang]="Interface language restored"
 I18N[backup_restored_nginx]="nginx config restored"
 I18N[backup_restored_ssl]="SSL certificates restored"
@@ -362,7 +362,7 @@ I18N[auto_refresh]="Refresh in 30 sec"
 I18N[deps_installing]="Installing dependencies: %s"
 
 # ── Migration ───────────────────────────────────────────────────────────
-I18N[v1_detected]="⚠️  goTelegram Pro v1 (mtg) installation detected"
+I18N[v1_detected]="⚠️  PCAtelegram_web v1 (mtg) installation detected"
 I18N[v1_container]="Container: %s"
 I18N[v1_migration_step]="Migrating from v1 (mtg) to v2 (telemt)"
 I18N[v1_found_title]="Found v1 (mtg) installation:"

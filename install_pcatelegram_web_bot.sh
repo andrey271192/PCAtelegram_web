@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — Установка Telegram-бота
+# PCAtelegram_web v2.5.0 — Установка Telegram-бота
 # Создаёт venv, ставит зависимости, настраивает systemd
 
 set -e
@@ -9,11 +9,11 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-BOT_DIR="/opt/gotelegram-bot"
-SERVICE_NAME="gotelegram-bot"
-GOTELEGRAM_DIR="/opt/gotelegram"
-ADMIN_WEB_DIR="/opt/gotelegram-admin"
-ADMIN_WEB_SERVICE="gotelegram-admin"
+BOT_DIR="/opt/pcatelegram_web-bot"
+SERVICE_NAME="pcatelegram_web-bot"
+PCATELEGRAM_WEB_DIR="/opt/pcatelegram_web"
+ADMIN_WEB_DIR="/opt/pcatelegram_web-admin"
+ADMIN_WEB_SERVICE="pcatelegram_web-admin"
 ADMIN_WEB_PORT="1984"
 
 if [ "$EUID" -ne 0 ]; then
@@ -22,7 +22,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo -e "${CYAN}╔═══════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}GoTelegram v2.5.0 — Установка бота${NC}          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${GREEN}PCAtelegram_web v2.5.0 — Установка бота${NC}          ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -44,20 +44,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$SCRIPT_DIR/lib/common.sh" ] && source "$SCRIPT_DIR/lib/common.sh" || true
 [ -f "$SCRIPT_DIR/lib/stats.sh" ] && source "$SCRIPT_DIR/lib/stats.sh" || true
 
-if [ -f "$SCRIPT_DIR/gotelegram-bot/bot.py" ]; then
+if [ -f "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" ]; then
     echo -e "${GREEN}[*] Копирование файлов бота...${NC}"
-    cp "$SCRIPT_DIR/gotelegram-bot/bot.py" "$BOT_DIR/"
-    cp "$SCRIPT_DIR/gotelegram-bot/requirements.txt" "$BOT_DIR/"
-    [ -f "$SCRIPT_DIR/gotelegram-bot/config.example.env" ] && cp "$SCRIPT_DIR/gotelegram-bot/config.example.env" "$BOT_DIR/"
+    cp "$SCRIPT_DIR/pcatelegram_web-bot/bot.py" "$BOT_DIR/"
+    cp "$SCRIPT_DIR/pcatelegram_web-bot/requirements.txt" "$BOT_DIR/"
+    [ -f "$SCRIPT_DIR/pcatelegram_web-bot/config.example.env" ] && cp "$SCRIPT_DIR/pcatelegram_web-bot/config.example.env" "$BOT_DIR/"
 else
-    echo -e "${RED}Файлы бота не найдены в $SCRIPT_DIR/gotelegram-bot/${NC}"
+    echo -e "${RED}Файлы бота не найдены в $SCRIPT_DIR/pcatelegram_web-bot/${NC}"
     exit 1
 fi
 
 # Копируем каталог шаблонов
 if [ -f "$SCRIPT_DIR/templates_catalog.json" ]; then
-    mkdir -p "$GOTELEGRAM_DIR"
-    cp "$SCRIPT_DIR/templates_catalog.json" "$GOTELEGRAM_DIR/"
+    mkdir -p "$PCATELEGRAM_WEB_DIR"
+    cp "$SCRIPT_DIR/templates_catalog.json" "$PCATELEGRAM_WEB_DIR/"
     echo -e "${GREEN}[*] Каталог шаблонов скопирован${NC}"
 fi
 
@@ -98,7 +98,7 @@ fi
 # ── Systemd ──────────────────────────────────────────────────────────────────
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
 [Unit]
-Description=GoTelegram v2.5.0 Telegram Bot
+Description=PCAtelegram_web v2.5.0 Telegram Bot
 After=network.target
 
 [Service]
@@ -130,7 +130,7 @@ if [ -f "$SCRIPT_DIR/admin-web/server.py" ]; then
     PYTHON_BIN=$(command -v python3)
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << EOF
 [Unit]
-Description=GoTelegram v2.5.0 Local Web Admin
+Description=PCAtelegram_web v2.5.0 Local Web Admin
 After=network.target
 
 [Service]
@@ -139,8 +139,8 @@ WorkingDirectory=$ADMIN_WEB_DIR
 ExecStart=$PYTHON_BIN $ADMIN_WEB_DIR/server.py
 Restart=always
 RestartSec=5
-Environment=GOTELEGRAM_ADMIN_HOST=127.0.0.1
-Environment=GOTELEGRAM_ADMIN_PORT=$ADMIN_WEB_PORT
+Environment=PCATELEGRAM_WEB_ADMIN_HOST=127.0.0.1
+Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
 
 [Install]
 WantedBy=multi-user.target

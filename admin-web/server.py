@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-goTelegram Pro local web admin.
+PCAtelegram_web local web admin.
 
 The service is intentionally bound to 127.0.0.1:1984. Operators reach it
 through an SSH tunnel by default. If exposed through a reverse proxy or public
-bind, enable GOTELEGRAM_ADMIN_PASSWORD.
+bind, enable PCATELEGRAM_WEB_ADMIN_PASSWORD.
 """
 
 from __future__ import annotations
@@ -32,35 +32,35 @@ from pathlib import Path
 from typing import Any
 
 
-ADMIN_DIR = Path(os.getenv("GOTELEGRAM_ADMIN_DIR", "/opt/gotelegram-admin"))
-STATIC_DIR = Path(os.getenv("GOTELEGRAM_ADMIN_STATIC", str(ADMIN_DIR / "static")))
+ADMIN_DIR = Path(os.getenv("PCATELEGRAM_WEB_ADMIN_DIR", "/opt/pcatelegram_web-admin"))
+STATIC_DIR = Path(os.getenv("PCATELEGRAM_WEB_ADMIN_STATIC", str(ADMIN_DIR / "static")))
 
-GOTELEGRAM_CONFIG = Path(os.getenv("GOTELEGRAM_CONFIG", "/opt/gotelegram/config.json"))
+PCATELEGRAM_WEB_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_CONFIG", "/opt/pcatelegram_web/config.json"))
 TELEMT_CONFIG = Path(os.getenv("TELEMT_CONFIG", "/etc/telemt/config.toml"))
-HISTORY_FILE = Path(os.getenv("GOTELEGRAM_STATS_HISTORY", "/opt/gotelegram/stats_history.csv"))
-USER_HISTORY_FILE = Path(os.getenv("GOTELEGRAM_USER_STATS_HISTORY", "/opt/gotelegram/user_stats_history.csv"))
-CURRENT_STATS = Path(os.getenv("GOTELEGRAM_STATS_CURRENT", "/run/gotelegram/stats_current.json"))
-BACKUP_DIR = Path(os.getenv("GOTELEGRAM_BACKUP_DIR", "/opt/gotelegram/backups"))
-INSTALL_DIR = Path(os.getenv("GOTELEGRAM_DIR", "/opt/gotelegram"))
-BOT_DIR = Path(os.getenv("GOTELEGRAM_BOT_DIR", "/opt/gotelegram-bot"))
-DISABLED_USERS_FILE = Path(os.getenv("GOTELEGRAM_DISABLED_USERS", "/opt/gotelegram/disabled_users.json"))
-USER_LOCK_FILE = Path(os.getenv("GOTELEGRAM_USER_LOCK", "/run/gotelegram/admin-users.lock"))
-SHARED_443_CONFIG = Path(os.getenv("GOTELEGRAM_SHARED_443", "/opt/gotelegram/shared-443.json"))
-BACKUP_SCHEDULE_FILE = Path(os.getenv("GOTELEGRAM_BACKUP_SCHEDULE", "/opt/gotelegram/backup_schedule.json"))
-BACKUP_RESTORE_LOG = Path(os.getenv("GOTELEGRAM_BACKUP_RESTORE_LOG", "/var/log/gotelegram-restore.log"))
+HISTORY_FILE = Path(os.getenv("PCATELEGRAM_WEB_STATS_HISTORY", "/opt/pcatelegram_web/stats_history.csv"))
+USER_HISTORY_FILE = Path(os.getenv("PCATELEGRAM_WEB_USER_STATS_HISTORY", "/opt/pcatelegram_web/user_stats_history.csv"))
+CURRENT_STATS = Path(os.getenv("PCATELEGRAM_WEB_STATS_CURRENT", "/run/pcatelegram_web/stats_current.json"))
+BACKUP_DIR = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_DIR", "/opt/pcatelegram_web/backups"))
+INSTALL_DIR = Path(os.getenv("PCATELEGRAM_WEB_DIR", "/opt/pcatelegram_web"))
+BOT_DIR = Path(os.getenv("PCATELEGRAM_WEB_BOT_DIR", "/opt/pcatelegram_web-bot"))
+DISABLED_USERS_FILE = Path(os.getenv("PCATELEGRAM_WEB_DISABLED_USERS", "/opt/pcatelegram_web/disabled_users.json"))
+USER_LOCK_FILE = Path(os.getenv("PCATELEGRAM_WEB_USER_LOCK", "/run/pcatelegram_web/admin-users.lock"))
+SHARED_443_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_SHARED_443", "/opt/pcatelegram_web/shared-443.json"))
+BACKUP_SCHEDULE_FILE = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_SCHEDULE", "/opt/pcatelegram_web/backup_schedule.json"))
+BACKUP_RESTORE_LOG = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_RESTORE_LOG", "/var/log/pcatelegram_web-restore.log"))
 
-HOST = os.getenv("GOTELEGRAM_ADMIN_HOST", "127.0.0.1")
-PORT = int(os.getenv("GOTELEGRAM_ADMIN_PORT", "1984"))
-ADMIN_USER = os.getenv("GOTELEGRAM_ADMIN_USER", "admin")
-ADMIN_PASSWORD = os.getenv("GOTELEGRAM_ADMIN_PASSWORD", "")
-ADMIN_REALM = os.getenv("GOTELEGRAM_ADMIN_REALM", "GoTelegram")
+HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "127.0.0.1")
+PORT = int(os.getenv("PCATELEGRAM_WEB_ADMIN_PORT", "1984"))
+ADMIN_USER = os.getenv("PCATELEGRAM_WEB_ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.getenv("PCATELEGRAM_WEB_ADMIN_PASSWORD", "")
+ADMIN_REALM = os.getenv("PCATELEGRAM_WEB_ADMIN_REALM", "PCAtelegram_web")
 VERSION = "2.5.0"
 USER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 LANG_RE = re.compile(r"^(en|ru)$")
 SENSITIVE_CONFIG_KEYS = {"secret"}
 BACKUP_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+\.tar\.gz(\.enc)?$")
 MAX_UNIQUE_IP_LIMIT = 1000000
-TELEMT_RESTART_DEBOUNCE_SECONDS = float(os.getenv("GOTELEGRAM_TELEMT_RESTART_DEBOUNCE", "8"))
+TELEMT_RESTART_DEBOUNCE_SECONDS = float(os.getenv("PCATELEGRAM_WEB_TELEMT_RESTART_DEBOUNCE", "8"))
 _LAST_TELEMT_RESTART = 0.0
 TRAFFIC_WINDOWS = {
     "15m": 15 * 60,
@@ -135,7 +135,7 @@ def save_json(path: Path, data: Any, mode: int = 0o600) -> None:
 
 
 def read_language(config: dict[str, Any] | None = None) -> str:
-    config = config or load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = config or load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     lang = str(config.get("language") or config.get("lang") or "").strip().lower()
     marker = INSTALL_DIR / ".language"
     if lang not in {"en", "ru"} and marker.exists():
@@ -154,12 +154,12 @@ def write_language(lang: str) -> dict[str, Any]:
     lang = str(lang or "").strip().lower()
     if not LANG_RE.match(lang):
         raise ValueError("unsupported language")
-    config = load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     if not isinstance(config, dict):
         config = {}
     config["language"] = lang
     config["updated_at"] = utc_now()
-    save_json(GOTELEGRAM_CONFIG, config)
+    save_json(PCATELEGRAM_WEB_CONFIG, config)
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
     (INSTALL_DIR / ".language").write_text(lang + "\n", encoding="utf-8")
     bot_env = BOT_DIR / ".env"
@@ -593,7 +593,7 @@ def listener_for_target(target: str) -> dict[str, Any] | None:
 
 
 def routed_behind_443() -> list[dict[str, Any]]:
-    config = load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     mode = str(config.get("mode") or "")
     domain = str(config.get("domain") or "")
     settings = read_telemt_edge_settings()
@@ -694,7 +694,7 @@ def public_ip() -> str:
 
 
 def proxy_link(secret: str) -> str:
-    config = load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     mode = str(config.get("mode", "lite"))
     port = int(config.get("port", 443) or 443)
     domain = str(config.get("domain", "") or "")
@@ -721,7 +721,7 @@ def telemt_api(path: str) -> Any:
 
 
 def site_status(config: dict[str, Any] | None = None) -> dict[str, Any]:
-    config = config or load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = config or load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     host = str(config.get("domain") or "").strip()
     if not host:
         return {"host": "", "url": "", "http_code": 0, "ok": False, "checked": False, "error": "domain_missing"}
@@ -1002,7 +1002,7 @@ def count_user_history_rows(name: str | None = None) -> int:
 def stats_status(current: dict[str, Any] | None = None, history: list[dict[str, int]] | None = None) -> dict[str, Any]:
     current = current if current is not None else (load_json(CURRENT_STATS, {}) or {})
     history = history if history is not None else load_stats_history(limit=2)
-    service = service_status("gotelegram-stats")
+    service = service_status("pcatelegram_web-stats")
     now = int(time.time())
     ts = int(current.get("ts") or 0) if isinstance(current, dict) else 0
     age = max(0, now - ts) if ts else None
@@ -1034,9 +1034,9 @@ def stats_status(current: dict[str, Any] | None = None, history: list[dict[str, 
 def run_stats_action(action: str) -> tuple[bool, str, dict[str, Any]]:
     if action == "repair":
         body = (
-            "source /opt/gotelegram/lib/common.sh; "
-            "source /opt/gotelegram/lib/i18n.sh; "
-            "source /opt/gotelegram/lib/stats.sh; "
+            "source /opt/pcatelegram_web/lib/common.sh; "
+            "source /opt/pcatelegram_web/lib/i18n.sh; "
+            "source /opt/pcatelegram_web/lib/stats.sh; "
             "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
             "install_stats_collector; "
             "stats_collect"
@@ -1044,8 +1044,8 @@ def run_stats_action(action: str) -> tuple[bool, str, dict[str, Any]]:
         timeout = 180
     else:
         body = (
-            "source /opt/gotelegram/lib/common.sh; "
-            "source /opt/gotelegram/lib/stats.sh; "
+            "source /opt/pcatelegram_web/lib/common.sh; "
+            "source /opt/pcatelegram_web/lib/stats.sh; "
             "stats_init >/dev/null 2>&1 || true; "
             "stats_collect"
         )
@@ -1100,9 +1100,9 @@ def backup_schedule_status() -> dict[str, Any]:
     except ValueError:
         frequency = "off"
         calendar = None
-    active_code, active, _ = run(["systemctl", "is-active", "gotelegram-backup.timer"], timeout=5)
-    enabled_code, enabled, _ = run(["systemctl", "is-enabled", "gotelegram-backup.timer"], timeout=5)
-    _, next_run, _ = run(["systemctl", "show", "gotelegram-backup.timer", "--property=NextElapseUSecRealtime", "--value"], timeout=5)
+    active_code, active, _ = run(["systemctl", "is-active", "pcatelegram_web-backup.timer"], timeout=5)
+    enabled_code, enabled, _ = run(["systemctl", "is-enabled", "pcatelegram_web-backup.timer"], timeout=5)
+    _, next_run, _ = run(["systemctl", "show", "pcatelegram_web-backup.timer", "--property=NextElapseUSecRealtime", "--value"], timeout=5)
     return {
         "frequency": frequency,
         "calendar": calendar,
@@ -1116,9 +1116,9 @@ def backup_schedule_status() -> dict[str, Any]:
 def set_backup_schedule(frequency: str) -> tuple[bool, str, dict[str, Any]]:
     backup_schedule_calendar(frequency)
     script = (
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         f"set_backup_schedule {shlex.quote(frequency)}"
     )
@@ -1129,11 +1129,11 @@ def set_backup_schedule(frequency: str) -> tuple[bool, str, dict[str, Any]]:
 
 def create_backup() -> tuple[bool, str]:
     script = (
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/telemt.sh; "
-        "source /opt/gotelegram/lib/website.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/telemt.sh; "
+        "source /opt/pcatelegram_web/lib/website.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         "create_backup \"\"; "
         "cleanup_old_backups 30"
@@ -1166,11 +1166,11 @@ def launch_restore_backup(name: str, password: str = "") -> dict[str, Any]:
     quoted_log = shlex.quote(str(BACKUP_RESTORE_LOG))
     script = (
         "sleep 1; "
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/telemt.sh; "
-        "source /opt/gotelegram/lib/website.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/telemt.sh; "
+        "source /opt/pcatelegram_web/lib/website.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         "create_backup \"\" >/dev/null 2>&1 || true; "
         f"restore_backup {quoted_path} {quoted_password} yes; "
@@ -1201,7 +1201,7 @@ def user_qr_png(name: str) -> tuple[bytes, str]:
 
 
 def read_log_payload(service: str) -> dict[str, Any]:
-    allowed = {"telemt", "nginx", "gotelegram-bot", "gotelegram-stats", "gotelegram-admin"}
+    allowed = {"telemt", "nginx", "pcatelegram_web-bot", "pcatelegram_web-stats", "pcatelegram_web-admin"}
     if service not in allowed:
         raise ValueError("unsupported service")
     code, stdout, stderr = run(["journalctl", "-u", service, "-n", "180", "--no-pager", "-o", "short-iso"], timeout=10)
@@ -1249,7 +1249,7 @@ def user_payload(
 
 
 def overview_payload() -> dict[str, Any]:
-    config = load_json(GOTELEGRAM_CONFIG, {}) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
     language = read_language(config)
     users = read_user_records()
     current = load_json(CURRENT_STATS, {}) or {}
@@ -1258,9 +1258,9 @@ def overview_payload() -> dict[str, Any]:
     services = {
         "telemt": service_status("telemt"),
         "nginx": service_status("nginx"),
-        "bot": service_status("gotelegram-bot"),
-        "stats": service_status("gotelegram-stats"),
-        "admin": service_status("gotelegram-admin"),
+        "bot": service_status("pcatelegram_web-bot"),
+        "stats": service_status("pcatelegram_web-stats"),
+        "admin": service_status("pcatelegram_web-admin"),
     }
     return {
         "version": VERSION,
@@ -1282,7 +1282,7 @@ def overview_payload() -> dict[str, Any]:
 
 
 class AdminHandler(BaseHTTPRequestHandler):
-    server_version = "goTelegramProAdmin/2.5.0"
+    server_version = "PCAtelegram_webProAdmin/2.5.0"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         print("%s - %s" % (self.address_string(), fmt % args))
@@ -1345,7 +1345,7 @@ class AdminHandler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def require_write_guard(self) -> bool:
-        if self.command in {"POST", "PUT", "PATCH", "DELETE"} and self.headers.get("X-GoTelegram-Admin") != "1":
+        if self.command in {"POST", "PUT", "PATCH", "DELETE"} and self.headers.get("X-PCAtelegram-Web-Admin") != "1":
             self.send_error_json(403, "missing write guard")
             return False
         return True
@@ -1602,7 +1602,7 @@ class AdminHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "data": lang_payload})
         elif path.startswith("/api/services/") and path.endswith("/restart"):
             service = path[len("/api/services/"):-len("/restart")]
-            allowed = {"telemt", "nginx", "gotelegram-bot", "gotelegram-stats"}
+            allowed = {"telemt", "nginx", "pcatelegram_web-bot", "pcatelegram_web-stats"}
             if service not in allowed:
                 self.send_error_json(400, "unsupported service")
                 return
@@ -1698,7 +1698,7 @@ def main() -> None:
     if not STATIC_DIR.exists():
         raise SystemExit(f"static dir not found: {STATIC_DIR}")
     httpd = ThreadingHTTPServer((HOST, PORT), AdminHandler)
-    print(f"goTelegram Pro admin listening on http://{HOST}:{PORT}")
+    print(f"PCAtelegram_web admin listening on http://{HOST}:{PORT}")
     httpd.serve_forever()
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-goTelegram Pro v2.5.0 Bot - MTProxy Management for Linux
+PCAtelegram_web v2.5.0 Bot - MTProxy Management for Linux
 Manages telemt engine via Telegram interface with full CLI feature parity
 Uses python-telegram-bot v21+
 Supports EN/RU UI with per-user language preferences.
@@ -103,28 +103,28 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ============================================================================
 
-GOTELEGRAM_VERSION = "2.5.0"
-GOTELEGRAM_CONFIG = "/opt/gotelegram/config.json"
-DISABLED_USERS_FILE = "/opt/gotelegram/disabled_users.json"
-USER_STATS_HISTORY = "/opt/gotelegram/user_stats_history.csv"
-USER_LOCK_FILE = "/run/gotelegram/admin-users.lock"
+PCATELEGRAM_WEB_VERSION = "2.5.0"
+PCATELEGRAM_WEB_CONFIG = "/opt/pcatelegram_web/config.json"
+DISABLED_USERS_FILE = "/opt/pcatelegram_web/disabled_users.json"
+USER_STATS_HISTORY = "/opt/pcatelegram_web/user_stats_history.csv"
+USER_LOCK_FILE = "/run/pcatelegram_web/admin-users.lock"
 TELEMT_CONFIG = "/etc/telemt/config.toml"
 TELEMT_SERVICE = "telemt"
-WEBSITE_ROOT = "/var/www/gotelegram-site"
-BACKUP_DIR = "/opt/gotelegram/backups"
-BACKUP_SCHEDULE_FILE = "/opt/gotelegram/backup_schedule.json"
-TEMPLATES_CATALOG = "/opt/gotelegram/templates_catalog.json"
-INSTALL_SH = "/opt/gotelegram/install.sh"
+WEBSITE_ROOT = "/var/www/pcatelegram_web-site"
+BACKUP_DIR = "/opt/pcatelegram_web/backups"
+BACKUP_SCHEDULE_FILE = "/opt/pcatelegram_web/backup_schedule.json"
+TEMPLATES_CATALOG = "/opt/pcatelegram_web/templates_catalog.json"
+INSTALL_SH = "/opt/pcatelegram_web/install.sh"
 
 PROMO_LINK_1 = "https://vk.cc/ct29NQ"
 PROMO_LINK_2 = "https://vk.cc/cUxAhj"
 TIP_LINK = "https://pay.cloudtips.ru/p/7410814f"
-YOUTUBE_LINK = os.getenv("GOTELEGRAM_YOUTUBE_LINK", "").strip()
-PROMO_STAMP_FILE = "/opt/gotelegram/.promo_bot_last_shown"
+YOUTUBE_LINK = os.getenv("PCATELEGRAM_WEB_YOUTUBE_LINK", "").strip()
+PROMO_STAMP_FILE = "/opt/pcatelegram_web/.promo_bot_last_shown"
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ENV_FILE = "/opt/gotelegram-bot/.env"
-ADMIN_WEB_SERVICE = "gotelegram-admin"
+ENV_FILE = "/opt/pcatelegram_web-bot/.env"
+ADMIN_WEB_SERVICE = "pcatelegram_web-admin"
 ADMIN_WEB_PORT = 1984
 
 
@@ -263,7 +263,7 @@ async def sh(*args, timeout: int = 60) -> Tuple[int, str, str]:
 
 # Per-host mutex preventing concurrent install.sh --action invocations. Two
 # admins hitting "change template" at the same second could race each other
-# and corrupt /var/www/gotelegram-site. One global lock is fine — these are
+# and corrupt /var/www/pcatelegram_web-site. One global lock is fine — these are
 # rare operations and should serialize cleanly.
 _BOT_ACTION_LOCK = asyncio.Lock()
 
@@ -279,7 +279,7 @@ _DOMAIN_RE = re.compile(
 )
 _USER_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 MAX_UNIQUE_IP_LIMIT = 1000000
-TELEMT_RESTART_DEBOUNCE_SECONDS = float(os.getenv("GOTELEGRAM_TELEMT_RESTART_DEBOUNCE", "8"))
+TELEMT_RESTART_DEBOUNCE_SECONDS = float(os.getenv("PCATELEGRAM_WEB_TELEMT_RESTART_DEBOUNCE", "8"))
 _LAST_TELEMT_RESTART = 0.0
 
 
@@ -391,7 +391,7 @@ def template_display_name(template_id: str) -> str:
     if template_id in ("deployed_site", "existing_site"):
         return "Existing deployed site"
     if template_id.startswith("custom_"):
-        config = load_json(GOTELEGRAM_CONFIG) or {}
+        config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
         source = config.get("template_source", "")
         return f"{template_id} ({source})" if source else template_id
     catalog = load_json(TEMPLATES_CATALOG) or {}
@@ -652,7 +652,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     welcome = (
-        f"<b>{_tf(user_id, 'welcome_title', GOTELEGRAM_VERSION)}</b>\n\n"
+        f"<b>{_tf(user_id, 'welcome_title', PCATELEGRAM_WEB_VERSION)}</b>\n\n"
         f"{_t(user_id, 'welcome_subtitle')}\n"
         f"{_t(user_id, 'welcome_powered')}\n\n"
         f"{_t(user_id, 'welcome_prompt')}"
@@ -750,10 +750,10 @@ async def get_status_text(user_id: Optional[int] = None) -> str:
     lines.append(f"<b>{_t(user_id, 'status_telemt')}:</b> v{version}")
 
     # Config status
-    config = load_json(GOTELEGRAM_CONFIG)
+    config = load_json(PCATELEGRAM_WEB_CONFIG)
     if config:
         lines.append(f"<b>{_t(user_id, 'status_mode')}:</b> {html.escape(str(config.get('mode', 'unknown')))}")
-        # install.sh/save_gotelegram_config uses "template_id" (not "template")
+        # install.sh/save_pcatelegram_web_config uses "template_id" (not "template")
         tpl = config.get("template_id") or config.get("template")
         if tpl:
             lines.append(f"<b>{_t(user_id, 'status_template')}:</b> {html.escape(template_display_name(str(tpl)))}")
@@ -795,15 +795,15 @@ async def get_traffic_stats() -> str:
     await sh(
         "bash",
         "-lc",
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/stats.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/stats.sh; "
         "stats_init >/dev/null 2>&1 || true; stats_collect >/dev/null 2>&1 || true",
         timeout=15,
     )
 
     # Read current snapshot
-    current_file = "/run/gotelegram/stats_current.json"
-    history_file = "/opt/gotelegram/stats_history.csv"
+    current_file = "/run/pcatelegram_web/stats_current.json"
+    history_file = "/opt/pcatelegram_web/stats_history.csv"
 
     try:
         with open(current_file, "r") as f:
@@ -1032,7 +1032,7 @@ async def cb_lite_domain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await query.answer()
 
-    config = load_json(GOTELEGRAM_CONFIG) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
     current_mode = config.get("mode", "")
 
     if current_mode != "lite":
@@ -1040,7 +1040,7 @@ async def cb_lite_domain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "<b>⚠️ Установка Lite из бота пока не поддерживается</b>\n\n"
             f"Выбранный домен: <code>{html.escape(domain)}</code>\n\n"
             "Чтобы установить Lite, запустите на сервере:\n"
-            "<code>gotelegram</code> → <b>1) Прокси → 1) Установить/Обновить → Lite</b>\n\n"
+            "<code>pcatelegram_web</code> → <b>1) Прокси → 1) Установить/Обновить → Lite</b>\n\n"
             "Существующая конфигурация <b>не была изменена</b>."
         )
         keyboard = InlineKeyboardMarkup(
@@ -1185,7 +1185,7 @@ async def _download_custom_git_template(url_with_branch: str) -> Tuple[bool, str
             url = base
 
     tpl_id = "custom_" + hashlib.md5(url_with_branch.encode("utf-8")).hexdigest()[:10]
-    target_dir = f"/opt/gotelegram/custom_templates/{tpl_id}"
+    target_dir = f"/opt/pcatelegram_web/custom_templates/{tpl_id}"
 
     # Clean previous copy
     if os.path.isdir(target_dir):
@@ -1403,7 +1403,7 @@ async def cb_pro_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     # Read current config to decide: in-place change-template vs fresh install
-    config = load_json(GOTELEGRAM_CONFIG) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
     current_mode = config.get("mode", "")
 
     if current_mode != "pro":
@@ -1413,7 +1413,7 @@ async def cb_pro_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"Выбранный шаблон: <code>{html.escape(tpl_id)}</code>\n\n"
             "Pro-режим требует ввода домена, email и проверки DNS. "
             "Чтобы установить Pro, запустите на сервере:\n"
-            "<code>gotelegram</code> → <b>1) Прокси → 1) Установить/Обновить → Pro</b>\n\n"
+            "<code>pcatelegram_web</code> → <b>1) Прокси → 1) Установить/Обновить → Pro</b>\n\n"
             "Существующая конфигурация <b>не была изменена</b>."
         )
         keyboard = InlineKeyboardMarkup(
@@ -1466,7 +1466,7 @@ async def cb_pro_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             + (f" (<code>{html.escape(err_code)}</code>)" if err_code else "")
             + "\n\n"
             "Существующая конфигурация <b>не была изменена</b>. "
-            "Попробуйте другой шаблон или запустите <code>gotelegram</code> из консоли."
+            "Попробуйте другой шаблон или запустите <code>pcatelegram_web</code> из консоли."
         )
 
     keyboard = InlineKeyboardMarkup(
@@ -1766,7 +1766,7 @@ def user_traffic_history_summary(name: str) -> str:
 
 async def get_proxy_link_for_secret(secret: str) -> Optional[str]:
     """Generate a fake-TLS proxy link for an arbitrary telemt user secret."""
-    config = load_json(GOTELEGRAM_CONFIG) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
     if not secret:
         return None
 
@@ -1789,7 +1789,7 @@ async def get_proxy_link_for_secret(secret: str) -> Optional[str]:
 
 async def get_proxy_link() -> Optional[str]:
     """Generate proxy link from config. Pro-mode uses domain + fake-TLS secret."""
-    config = load_json(GOTELEGRAM_CONFIG)
+    config = load_json(PCATELEGRAM_WEB_CONFIG)
     if not config:
         return None
 
@@ -1959,7 +1959,7 @@ async def _user_detail_text(name: str, secret: str, enabled: bool = True, max_un
             compact = json.dumps(data, ensure_ascii=False)[:600]
             details = f"\n<pre>{html.escape(compact)}</pre>"
     elif enabled:
-        details = "\n<i>Runtime API недоступен. Новые установки goTelegram Pro включают его автоматически.</i>"
+        details = "\n<i>Runtime API недоступен. Новые установки PCAtelegram_web включают его автоматически.</i>"
     else:
         details = "\n<i>Ключ отключён и сейчас не принимается telemt.</i>"
     details += user_traffic_history_summary(name)
@@ -2033,7 +2033,7 @@ async def cb_user_qr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await query.answer("Ссылка недоступна", show_alert=True)
         return
 
-    qr_file = f"/tmp/gotelegram_user_qr_{hashlib.sha256(name.encode()).hexdigest()[:10]}.png"
+    qr_file = f"/tmp/pcatelegram_web_user_qr_{hashlib.sha256(name.encode()).hexdigest()[:10]}.png"
     code, _, _ = await sh("which", "qrencode")
     if code == 0:
         code, _, _ = await sh("qrencode", "-o", qr_file, link)
@@ -2340,11 +2340,11 @@ def backup_schedule_state() -> Dict[str, Any]:
 
 async def run_full_backup() -> Tuple[bool, str]:
     script = (
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/telemt.sh; "
-        "source /opt/gotelegram/lib/website.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/telemt.sh; "
+        "source /opt/pcatelegram_web/lib/website.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         "create_backup \"\"; "
         "cleanup_old_backups 30"
@@ -2358,9 +2358,9 @@ async def set_full_backup_schedule(frequency: str) -> Tuple[bool, str]:
     if frequency not in {"off", "daily", "weekly", "monthly"}:
         return False, "unsupported schedule"
     script = (
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         f"set_backup_schedule {shlex.quote(frequency)}"
     )
@@ -2373,11 +2373,11 @@ async def launch_full_restore(backup_path: str) -> None:
     quoted_path = shlex.quote(backup_path)
     script = (
         "sleep 1; "
-        "source /opt/gotelegram/lib/common.sh; "
-        "source /opt/gotelegram/lib/i18n.sh; "
-        "source /opt/gotelegram/lib/telemt.sh; "
-        "source /opt/gotelegram/lib/website.sh; "
-        "source /opt/gotelegram/lib/backup.sh; "
+        "source /opt/pcatelegram_web/lib/common.sh; "
+        "source /opt/pcatelegram_web/lib/i18n.sh; "
+        "source /opt/pcatelegram_web/lib/telemt.sh; "
+        "source /opt/pcatelegram_web/lib/website.sh; "
+        "source /opt/pcatelegram_web/lib/backup.sh; "
         "load_language \"$(detect_language 2>/dev/null || echo en)\"; "
         "create_backup \"\" >/dev/null 2>&1 || true; "
         f"restore_backup {quoted_path} \"\" yes; "
@@ -2431,14 +2431,14 @@ async def cb_menu_backup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "<b>💾 Бекапы</b>\n\n"
             f"Файлов: <code>{len(backups)}</code>\n"
             f"Расписание: <b>{labels.get(schedule['frequency'], schedule['frequency'])}</b>\n\n"
-            "В бекап входит: telemt config, настройки goTelegram, ключи, отключённые ключи, сайт, шаблоны, SSL, бот, админка и история трафика."
+            "В бекап входит: telemt config, настройки PCAtelegram_web, ключи, отключённые ключи, сайт, шаблоны, SSL, бот, админка и история трафика."
         )
     else:
         text = (
             "<b>💾 Backups</b>\n\n"
             f"Files: <code>{len(backups)}</code>\n"
             f"Schedule: <b>{labels.get(schedule['frequency'], schedule['frequency'])}</b>\n\n"
-            "Backups include telemt config, goTelegram settings, keys, disabled keys, site, templates, SSL, bot, admin panel and traffic history."
+            "Backups include telemt config, PCAtelegram_web settings, keys, disabled keys, site, templates, SSL, bot, admin panel and traffic history."
         )
     keyboard = InlineKeyboardMarkup(buttons)
     await safe_edit_message(query,text, reply_markup=keyboard, parse_mode="HTML")
@@ -2583,7 +2583,7 @@ async def cb_restore_backup(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not safe_path:
         text = "❌ Файл бекапа не найден" if get_user_lang(user_id) == "ru" else "❌ Backup file not found"
     elif safe_path.endswith(".enc"):
-        text = "❌ Зашифрованный бекап пока восстанавливается через CLI: gotelegram → Восстановить." if get_user_lang(user_id) == "ru" else "❌ Encrypted backups are restored from CLI for now: gotelegram → Restore."
+        text = "❌ Зашифрованный бекап пока восстанавливается через CLI: pcatelegram_web → Восстановить." if get_user_lang(user_id) == "ru" else "❌ Encrypted backups are restored from CLI for now: pcatelegram_web → Restore."
     else:
         await launch_full_restore(safe_path)
         text = (
@@ -2759,7 +2759,7 @@ async def cb_ssl_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def admin_web_host_hint() -> str:
-    config = load_json(GOTELEGRAM_CONFIG) or {}
+    config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
     domain = str(config.get("domain") or "")
     if domain:
         return domain
@@ -2998,7 +2998,7 @@ async def cb_menu_credits(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     text = (
         f"<b>ℹ️ Credits & Acknowledgements</b>\n\n"
-        f"<b>goTelegram Pro v{GOTELEGRAM_VERSION}</b>\n\n"
+        f"<b>PCAtelegram_web v{PCATELEGRAM_WEB_VERSION}</b>\n\n"
         f"Built with love for the Telegram community\n\n"
         f"<b>Special thanks to:</b>\n\n"
         f"🙏 <b>telemt</b> - MTProxy engine\n"
@@ -3010,7 +3010,7 @@ async def cb_menu_credits(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"🚀 <b>Start Bootstrap</b> - Bootstrap templates\n"
         f"   Professional design framework\n\n"
         f"💬 <b>Community</b> - Your feedback & support\n\n"
-        f"<i>goTelegram Pro is open-source and community-driven</i>"
+        f"<i>PCAtelegram_web is open-source and community-driven</i>"
     )
 
     keyboard = InlineKeyboardMarkup(
@@ -3030,7 +3030,7 @@ async def cb_menu_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
 
     text = (
-        "<b>⚠️ Remove goTelegram Pro</b>\n\n"
+        "<b>⚠️ Remove PCAtelegram_web</b>\n\n"
         "This will completely remove the installation.\n"
         "Are you sure?"
     )
@@ -3048,16 +3048,16 @@ async def cb_remove_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     query = update.callback_query
     await query.answer()
 
-    await safe_edit_message(query,"⏳ Removing goTelegram Pro...")
+    await safe_edit_message(query,"⏳ Removing PCAtelegram_web...")
 
     # Stop service
     await sh("systemctl", "stop", TELEMT_SERVICE)
 
     # Remove directories
-    for path in ["/opt/gotelegram", WEBSITE_ROOT]:
+    for path in ["/opt/pcatelegram_web", WEBSITE_ROOT]:
         await sh("rm", "-rf", path)
 
-    text = "✅ goTelegram Pro removed successfully"
+    text = "✅ PCAtelegram_web removed successfully"
     keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton(_t(_uid(update), "btn_back"), callback_data="menu_main")]]
     )
@@ -3120,7 +3120,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer()
         buttons = get_main_menu(user_id)
         text = (
-            f"<b>{_tf(user_id, 'welcome_title', GOTELEGRAM_VERSION)}</b>\n\n"
+            f"<b>{_tf(user_id, 'welcome_title', PCATELEGRAM_WEB_VERSION)}</b>\n\n"
             f"{_t(user_id, 'welcome_subtitle')}\n"
             f"{_t(user_id, 'welcome_prompt')}"
         )
@@ -3158,7 +3158,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             # Re-render main menu in the new language
             buttons = get_main_menu(user_id)
             text = (
-                f"<b>{_tf(user_id, 'welcome_title', GOTELEGRAM_VERSION)}</b>\n\n"
+                f"<b>{_tf(user_id, 'welcome_title', PCATELEGRAM_WEB_VERSION)}</b>\n\n"
                 f"{_t(user_id, 'welcome_subtitle')}\n"
                 f"{_t(user_id, 'welcome_prompt')}"
             )
@@ -3282,12 +3282,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not ok:
         await update.message.reply_text(_t(user_id, info), parse_mode="HTML")
         return
-    # Success — record in goTelegram Pro config. Use "template_id" (canonical
-    # field name written by install.sh/save_gotelegram_config).
-    config = load_json(GOTELEGRAM_CONFIG) or {}
+    # Success — record in PCAtelegram_web config. Use "template_id" (canonical
+    # field name written by install.sh/save_pcatelegram_web_config).
+    config = load_json(PCATELEGRAM_WEB_CONFIG) or {}
     config["template_id"] = tpl_id
     config["template_source"] = url
-    save_json(GOTELEGRAM_CONFIG, config)
+    save_json(PCATELEGRAM_WEB_CONFIG, config)
     if config.get("mode") == "pro" and os.path.isdir(info):
         try:
             os.makedirs(WEBSITE_ROOT, exist_ok=True)
@@ -3353,7 +3353,7 @@ def main() -> None:
     application.add_error_handler(error_handler)
 
     # Run the bot
-    logger.info(f"goTelegram Pro v{GOTELEGRAM_VERSION} bot starting...")
+    logger.info(f"PCAtelegram_web v{PCATELEGRAM_WEB_VERSION} bot starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

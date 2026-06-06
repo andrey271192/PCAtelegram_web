@@ -1,32 +1,32 @@
 #!/bin/bash
-# goTelegram Pro v2.5.0 — common utilities
+# PCAtelegram_web v2.5.0 — common utilities
 # Colors, logging, spinner, system helpers, v1 compat, i18n-aware
 
 # ── Version ───────────────────────────────────────────────────────────────────
-GOTELEGRAM_VERSION="2.5.0"
-GOTELEGRAM_NAME="goTelegram Pro"
+PCATELEGRAM_WEB_VERSION="2.5.0"
+PCATELEGRAM_WEB_NAME="PCAtelegram_web"
 
 # ── Пути ──────────────────────────────────────────────────────────────────────
-GOTELEGRAM_DIR="/opt/gotelegram"
-GOTELEGRAM_CONFIG="$GOTELEGRAM_DIR/config.json"
+PCATELEGRAM_WEB_DIR="/opt/pcatelegram_web"
+PCATELEGRAM_WEB_CONFIG="$PCATELEGRAM_WEB_DIR/config.json"
 TELEMT_CONFIG="/etc/telemt/config.toml"
 TELEMT_BIN="/usr/local/bin/telemt"
 TELEMT_SERVICE="telemt"
-NGINX_SITE_CONF="/etc/nginx/sites-available/gotelegram"
-NGINX_SITE_LINK="/etc/nginx/sites-enabled/gotelegram"
-WEBSITE_ROOT="/var/www/gotelegram-site"
-BACKUP_DIR="$GOTELEGRAM_DIR/backups"
-LOG_FILE="/var/log/gotelegram.log"
-BOT_DIR="/opt/gotelegram-bot"
-ADMIN_WEB_DIR="/opt/gotelegram-admin"
-ADMIN_WEB_SERVICE="gotelegram-admin"
+NGINX_SITE_CONF="/etc/nginx/sites-available/pcatelegram_web"
+NGINX_SITE_LINK="/etc/nginx/sites-enabled/pcatelegram_web"
+WEBSITE_ROOT="/var/www/pcatelegram_web-site"
+BACKUP_DIR="$PCATELEGRAM_WEB_DIR/backups"
+LOG_FILE="/var/log/pcatelegram_web.log"
+BOT_DIR="/opt/pcatelegram_web-bot"
+ADMIN_WEB_DIR="/opt/pcatelegram_web-admin"
+ADMIN_WEB_SERVICE="pcatelegram_web-admin"
 ADMIN_WEB_HOST="127.0.0.1"
 ADMIN_WEB_PORT="1984"
 
 # ── V1 совместимость ─────────────────────────────────────────────────────────
 V1_CONTAINER_NAME="mtproto-proxy"
-V1_CONFIG_FILE="/opt/gotelegram-bot/proxy.json"
-V1_SERVICE_NAME="gotelegram-bot"
+V1_CONFIG_FILE="/opt/pcatelegram_web-bot/proxy.json"
+V1_SERVICE_NAME="pcatelegram_web-bot"
 
 # ── Цвета ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -93,7 +93,7 @@ progress_bar() {
 # ── Выполнение с индикатором ─────────────────────────────────────────────────
 run_with_spinner() {
     local label="$1"; shift
-    local err_file="/tmp/.gotelegram_spinner_err_$$"
+    local err_file="/tmp/.pcatelegram_web_spinner_err_$$"
     spinner_start "$label"
     "$@" >/dev/null 2>"$err_file"
     local rc=$?
@@ -119,11 +119,11 @@ show_banner() {
     echo ""
     echo -e "${CYAN}${line}${NC}"
     if type tf &>/dev/null; then
-        echo -e "  ${BOLD}${WHITE}🚀 $(tf banner_title "$GOTELEGRAM_VERSION")${NC}"
+        echo -e "  ${BOLD}${WHITE}🚀 $(tf banner_title "$PCATELEGRAM_WEB_VERSION")${NC}"
         echo -e "  ${DIM}$(t banner_subtitle)${NC}"
         echo -e "  ${DIM}$(t banner_features)${NC}"
     else
-        echo -e "  ${BOLD}${WHITE}🚀 goTelegram Pro v${GOTELEGRAM_VERSION}${NC}"
+        echo -e "  ${BOLD}${WHITE}🚀 PCAtelegram_web v${PCATELEGRAM_WEB_VERSION}${NC}"
         echo -e "  ${DIM}MTProxy powered by telemt (Rust + Tokio)${NC}"
         echo -e "  ${DIM}Anti-DPI • Fake TLS • TCP Splice • JA3/JA4${NC}"
     fi
@@ -306,7 +306,7 @@ apt_update() {
     return 0
 }
 
-# ── Зависимости GoTelegram ──────────────────────────────────────────────────
+# ── Зависимости PCAtelegram_web ──────────────────────────────────────────────────
 # Полный список внешних команд, которые скрипт использует. Для каждой команды
 # указан пакет на apt и dnf/yum (имена различаются: например dig = dnsutils на
 # Debian, bind-utils на RHEL).
@@ -429,7 +429,7 @@ ensure_deps() {
 
     if [ ${#still_missing[@]} -gt 0 ]; then
         log_error "Critical dependencies still missing: ${still_missing[*]}"
-        log_error "Install manually and re-run gotelegram"
+        log_error "Install manually and re-run pcatelegram_web"
         return 1
     fi
 
@@ -483,32 +483,32 @@ detect_3xui_443_listener() {
 warn_3xui_443_conflict() {
     detect_3xui_443_listener || return 1
     log_warning "Обнаружен 3x-ui/Xray, который уже слушает TCP/443."
-    log_warning "goTelegram Pro не будет молча останавливать или переписывать 3x-ui."
-    log_dim "Для настоящего shared-443 нужен один фронтовой TLS/SNI-диспетчер и разные SNI-домены для Xray и goTelegram Pro."
-    mkdir -p "$GOTELEGRAM_DIR" 2>/dev/null
-    cat > "$GOTELEGRAM_DIR/shared-443-3xui.md" <<'EOF' 2>/dev/null || true
-# goTelegram Pro + 3x-ui on one TCP/443
+    log_warning "PCAtelegram_web не будет молча останавливать или переписывать 3x-ui."
+    log_dim "Для настоящего shared-443 нужен один фронтовой TLS/SNI-диспетчер и разные SNI-домены для Xray и PCAtelegram_web."
+    mkdir -p "$PCATELEGRAM_WEB_DIR" 2>/dev/null
+    cat > "$PCATELEGRAM_WEB_DIR/shared-443-3xui.md" <<'EOF' 2>/dev/null || true
+# PCAtelegram_web + 3x-ui on one TCP/443
 
-goTelegram Pro detected that 3x-ui/Xray already owns TCP/443. Two independent
+PCAtelegram_web detected that 3x-ui/Xray already owns TCP/443. Two independent
 processes cannot bind the same IP:port at the same time. A safe shared setup
 needs one front TLS/SNI dispatcher on 443 and internal backends, for example:
 
 - dispatcher: 0.0.0.0:443 (nginx stream ssl_preread)
-- goTelegram Pro telemt: 127.0.0.1:7443
+- PCAtelegram_web telemt: 127.0.0.1:7443
 - 3x-ui/Xray inbound: 127.0.0.1:9443
-- goTelegram Pro nginx mask site: 127.0.0.1:8443
+- PCAtelegram_web nginx mask site: 127.0.0.1:8443
 
 The dispatcher routes Xray SNI domains to Xray. Everything else goes to telemt;
 telemt then decides whether the session is MTProxy or regular HTTPS and forwards
 the website to nginx through dns_overrides.
 
-goTelegram Pro can generate the dispatcher with:
+PCAtelegram_web can generate the dispatcher with:
 
-    source /opt/gotelegram/lib/shared443.sh
-    shared443_enable <gotelegram-domain> <xray-sni-domain> 127.0.0.1:9443
+    source /opt/pcatelegram_web/lib/shared443.sh
+    shared443_enable <pcatelegram_web-domain> <xray-sni-domain> 127.0.0.1:9443
 
 Move the 3x-ui/Xray inbound from 0.0.0.0:443 to 127.0.0.1:9443 in the panel first,
-or nginx will not be able to own the public 443 socket. goTelegram Pro intentionally
+or nginx will not be able to own the public 443 socket. PCAtelegram_web intentionally
 does not rewrite the 3x-ui SQLite database or generated Xray config without explicit
 operator confirmation, because 3x-ui can overwrite manual JSON edits on the next
 panel change.
@@ -531,14 +531,14 @@ check_disk_space() {
     return 0
 }
 
-# ── Конфигурация GoTelegram (JSON) ──────────────────────────────────────────
-save_gotelegram_config() {
-    mkdir -p "$(dirname "$GOTELEGRAM_CONFIG")"
+# ── Конфигурация PCAtelegram_web (JSON) ──────────────────────────────────────────
+save_pcatelegram_web_config() {
+    mkdir -p "$(dirname "$PCATELEGRAM_WEB_CONFIG")"
     local cur_lang
     cur_lang=$(type get_language &>/dev/null && get_language || echo en)
-    cat > "$GOTELEGRAM_CONFIG" << EOJSON
+    cat > "$PCATELEGRAM_WEB_CONFIG" << EOJSON
 {
-    "version": "$GOTELEGRAM_VERSION",
+    "version": "$PCATELEGRAM_WEB_VERSION",
     "engine": "${1:-telemt}",
     "mode": "${2:-lite}",
     "port": ${3:-443},
@@ -551,12 +551,12 @@ save_gotelegram_config() {
     "updated_at": "$(date -Iseconds)"
 }
 EOJSON
-    chmod 600 "$GOTELEGRAM_CONFIG"
+    chmod 600 "$PCATELEGRAM_WEB_CONFIG"
 }
 
-load_gotelegram_config() {
-    if [ -f "$GOTELEGRAM_CONFIG" ]; then
-        cat "$GOTELEGRAM_CONFIG"
+load_pcatelegram_web_config() {
+    if [ -f "$PCATELEGRAM_WEB_CONFIG" ]; then
+        cat "$PCATELEGRAM_WEB_CONFIG"
         return 0
     fi
     echo "{}"
@@ -565,11 +565,11 @@ load_gotelegram_config() {
 
 config_get() {
     local key="$1"
-    if [ ! -f "$GOTELEGRAM_CONFIG" ]; then
+    if [ ! -f "$PCATELEGRAM_WEB_CONFIG" ]; then
         return 2  # file missing
     fi
     local val
-    val=$(jq -r ".$key // empty" "$GOTELEGRAM_CONFIG" 2>/dev/null)
+    val=$(jq -r ".$key // empty" "$PCATELEGRAM_WEB_CONFIG" 2>/dev/null)
     if [ $? -ne 0 ]; then
         return 3  # invalid JSON
     fi
@@ -671,12 +671,12 @@ migrate_v1_to_v2() {
 
     # Backup v1 config
     if [ -f "$V1_CONFIG_FILE" ]; then
-        mkdir -p "$GOTELEGRAM_DIR"
-        cp "$V1_CONFIG_FILE" "$GOTELEGRAM_DIR/v1_backup_proxy.json" 2>/dev/null
+        mkdir -p "$PCATELEGRAM_WEB_DIR"
+        cp "$V1_CONFIG_FILE" "$PCATELEGRAM_WEB_DIR/v1_backup_proxy.json" 2>/dev/null
         if type tf &>/dev/null; then
-            log_success "$(tf v1_config_saved "$GOTELEGRAM_DIR/v1_backup_proxy.json")"
+            log_success "$(tf v1_config_saved "$PCATELEGRAM_WEB_DIR/v1_backup_proxy.json")"
         else
-            log_success "v1 config saved to $GOTELEGRAM_DIR/v1_backup_proxy.json"
+            log_success "v1 config saved to $PCATELEGRAM_WEB_DIR/v1_backup_proxy.json"
         fi
     fi
 
@@ -735,6 +735,6 @@ validate_domain() {
 
 # ── Init: создание директорий ────────────────────────────────────────────────
 init_dirs() {
-    mkdir -p "$GOTELEGRAM_DIR" "$BACKUP_DIR" /etc/telemt 2>/dev/null
+    mkdir -p "$PCATELEGRAM_WEB_DIR" "$BACKUP_DIR" /etc/telemt 2>/dev/null
     touch "$LOG_FILE" 2>/dev/null
 }

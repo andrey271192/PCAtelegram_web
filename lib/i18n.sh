@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — i18n engine
+# PCAtelegram_web v2.5.0 — i18n engine
 # Internationalization support: EN (English) / RU (Русский)
 #
 # Usage:
@@ -74,14 +74,14 @@ get_language() {
 
 # ── Detect saved language from config.json, default en ──
 detect_language() {
-    local cfg="${GOTELEGRAM_CONFIG:-/opt/gotelegram/config.json}"
+    local cfg="${PCATELEGRAM_WEB_CONFIG:-/opt/pcatelegram_web/config.json}"
     local lang=""
     if [ -f "$cfg" ] && command -v jq >/dev/null 2>&1; then
         lang=$(jq -r '.language // empty' "$cfg" 2>/dev/null)
     fi
     # Also check marker file (language set before config.json exists)
     if [ -z "$lang" ]; then
-        local marker="${GOTELEGRAM_DIR:-/opt/gotelegram}/.language"
+        local marker="${PCATELEGRAM_WEB_DIR:-/opt/pcatelegram_web}/.language"
         if [ -f "$marker" ]; then
             lang=$(head -c 2 "$marker" 2>/dev/null | tr -d '[:space:]')
         fi
@@ -100,11 +100,11 @@ save_language() {
     if ! [[ "$lang" =~ ^(en|ru)$ ]]; then
         return 1
     fi
-    mkdir -p "${GOTELEGRAM_DIR:-/opt/gotelegram}" 2>/dev/null
+    mkdir -p "${PCATELEGRAM_WEB_DIR:-/opt/pcatelegram_web}" 2>/dev/null
     # Always write marker for early-access (before config.json exists)
-    echo "$lang" > "${GOTELEGRAM_DIR:-/opt/gotelegram}/.language" 2>/dev/null
+    echo "$lang" > "${PCATELEGRAM_WEB_DIR:-/opt/pcatelegram_web}/.language" 2>/dev/null
 
-    local cfg="${GOTELEGRAM_CONFIG:-/opt/gotelegram/config.json}"
+    local cfg="${PCATELEGRAM_WEB_CONFIG:-/opt/pcatelegram_web/config.json}"
     if [ -f "$cfg" ] && command -v jq >/dev/null 2>&1; then
         local tmp
         tmp=$(mktemp) || return 1

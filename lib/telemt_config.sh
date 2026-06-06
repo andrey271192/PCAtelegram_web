@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoTelegram v2.5.0 — Генерация TOML конфигурации для telemt
+# PCAtelegram_web v2.5.0 — Генерация TOML конфигурации для telemt
 
 # ── Популярные домены (не заблокированные в РФ) ──────────────────────────────
 QUICK_DOMAINS=(
@@ -44,7 +44,7 @@ generate_telemt_toml() {
     fi
 
     cat > "$output" << EOTOML
-# GoTelegram v${GOTELEGRAM_VERSION} — telemt v3 configuration
+# PCAtelegram_web v${PCATELEGRAM_WEB_VERSION} — telemt v3 configuration
 # Сгенерировано: $(date -Iseconds)
 # Режим: ${mask_mode}
 
