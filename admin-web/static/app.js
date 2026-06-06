@@ -1302,8 +1302,8 @@ function renderUsers() {
           <strong>${escapeHtml(user.name)}</strong>${user.main ? ` <small>${escapeHtml(t("main"))}</small>` : ""}
         </button>
         <div class="status-control">
-          <label class="switch" title="${escapeAttr(user.main ? t("main") : (user.enabled ? t("disableKey") : t("enableKey")))}">
-            <input type="checkbox" data-toggle-user="${escapeAttr(user.name)}" ${user.enabled ? "checked" : ""} ${user.main || pending ? "disabled" : ""}>
+          <label class="switch" title="${escapeAttr(user.enabled ? t("disableKey") : t("enableKey"))}">
+            <input type="checkbox" data-toggle-user="${escapeAttr(user.name)}" ${user.enabled ? "checked" : ""} ${pending ? "disabled" : ""}>
             <span></span>
           </label>
           <strong class="${user.enabled ? "state-on" : "state-off"}">${escapeHtml(pending ? t("applying") : (user.enabled ? t("enabled") : t("disabled")))}</strong>

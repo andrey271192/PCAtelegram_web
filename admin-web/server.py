@@ -2285,9 +2285,6 @@ class AdminHandler(BaseHTTPRequestHandler):
             ), "restart": {"mode": "async", "requested": restart_requested}})
         elif path.startswith("/api/users/") and path.endswith("/enabled"):
             name = urllib.parse.unquote(path[len("/api/users/"):-len("/enabled")])
-            if name == "main":
-                self.send_error_json(400, "main user cannot be disabled")
-                return
             enabled = bool(body.get("enabled"))
             try:
                 with FileLock(USER_LOCK_FILE):
