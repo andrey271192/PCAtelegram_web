@@ -339,6 +339,24 @@ def run_bytes(cmd: list[str], timeout: int = 8) -> tuple[int, bytes, str]:
         return 125, b"", str(exc)
 
 
+def run_bash_env(script: str, env_extra: dict[str, str] | None = None, timeout: int = 180) -> tuple[int, str, str]:
+    env = os.environ.copy()
+    if env_extra:
+        env.update(env_extra)
+    try:
+        proc = subprocess.run(
+            ["bash", "-lc", script],
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+            env=env,
+        )
+        return proc.returncode, proc.stdout, proc.stderr
+    except Exception as exc:  # pragma: no cover - system dependent
+        return 125, "", str(exc)
+
+
 class FileLock:
     def __init__(self, path: Path):
         self.path = path
@@ -1112,6 +1130,61 @@ def routing_payload(port: int | None = None) -> dict[str, Any]:
     }
 
 
+def ensure_main_user(users: dict[str, str] | None = None) -> tuple[dict[str, str], bool]:
+    current = dict(users if users is not None else read_telemt_users())
+    if current:
+        return current, False
+    seed = f"main:{time.time()}:{secrets.token_hex(32)}".encode()
+    current["main"] = hashlib.sha256(seed).hexdigest()[:32]
+    write_telemt_users(current)
+    return current, True
+
+
+def sync_routing_config(port: int, mask_host: str, users: dict[str, str]) -> None:
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    if not isinstance(config, dict):
+        config = {}
+    config["engine"] = "telemt"
+    config["mode"] = str(config.get("mode") or "lite")
+    config["port"] = port
+    config["mask_host"] = mask_host
+    if "main" in users:
+        config["secret"] = users["main"]
+    config["updated_at"] = utc_now()
+    save_json(PCATELEGRAM_WEB_CONFIG, config)
+
+
+def install_telemt_for_routing(port: int, mask_host: str, users: dict[str, str]) -> None:
+    main_secret = users.get("main") or next(iter(users.values()), "")
+    if not main_secret:
+        raise RuntimeError("no telemt user secret")
+    script = """
+set -euo pipefail
+cd /opt/pcatelegram_web
+source /opt/pcatelegram_web/lib/common.sh
+source /opt/pcatelegram_web/lib/i18n.sh
+source /opt/pcatelegram_web/lib/telemt.sh
+source /opt/pcatelegram_web/lib/telemt_config.sh
+load_language "$(detect_language 2>/dev/null || echo en)" 2>/dev/null || true
+ensure_deps >/tmp/pcatelegram_web-ensure-deps.log 2>&1 || true
+install_telemt_full >/tmp/pcatelegram_web-telemt-install.log 2>&1
+generate_telemt_toml "$PCAT_MAIN_SECRET" "$PCAT_PORT" "lite" "$PCAT_MASK_HOST" "443" >/tmp/pcatelegram_web-telemt-config.log 2>&1
+validate_telemt_config >/tmp/pcatelegram_web-telemt-validate.log 2>&1
+start_telemt >/tmp/pcatelegram_web-telemt-start.log 2>&1
+"""
+    code, _, stderr = run_bash_env(
+        script,
+        {
+            "PCAT_MAIN_SECRET": main_secret,
+            "PCAT_PORT": str(port),
+            "PCAT_MASK_HOST": mask_host,
+        },
+        timeout=240,
+    )
+    if code != 0:
+        raise RuntimeError((stderr.strip().splitlines()[-1:] or ["telemt install failed"])[0])
+
+
 def write_routing_settings(port: int, mask_host: str) -> dict[str, Any]:
     listeners, _ = collect_port_listeners(port)
     conflicts = [
@@ -1122,23 +1195,26 @@ def write_routing_settings(port: int, mask_host: str) -> dict[str, Any]:
         names = ", ".join(f"{item.get('process')} {item.get('address')}" for item in conflicts[:3])
         raise RuntimeError(f"port is busy: {names}")
 
+    users, _ = ensure_main_user()
+    if service_status("telemt") == "not_installed":
+        install_telemt_for_routing(port, mask_host, users)
+        sync_routing_config(port, mask_host, users)
+        payload = routing_payload(port)
+        payload["restart"] = {"requested": True, "installed": True}
+        return payload
+
     update_toml_scalar("server", "port", str(port))
     update_toml_scalar("general.links", "public_port", str(port))
     update_toml_scalar("censorship", "tls_domain", json.dumps(mask_host))
 
-    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
-    if not isinstance(config, dict):
-        config = {}
-    config["port"] = port
-    config["mask_host"] = mask_host
-    config["updated_at"] = utc_now()
-    save_json(PCATELEGRAM_WEB_CONFIG, config)
+    sync_routing_config(port, mask_host, users)
 
     restarted = False
-    if service_status("telemt") != "not_installed":
+    status = service_status("telemt")
+    if status != "not_installed":
         restarted = request_service_restart("telemt")
     payload = routing_payload(port)
-    payload["restart"] = {"requested": restarted}
+    payload["restart"] = {"requested": restarted, "installed": False}
     return payload
 
 
