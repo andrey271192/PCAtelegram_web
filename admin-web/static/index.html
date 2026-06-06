@@ -11,7 +11,7 @@
       document.documentElement.dataset.theme = theme;
     }());
   </script>
-  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin18">
+  <link rel="stylesheet" href="/styles.css?v=2.5.0-admin19">
 </head>
 <body>
   <div class="app-shell">
@@ -342,6 +342,22 @@
                   <strong id="settingsBind">127.0.0.1:1984</strong>
                 </div>
               </div>
+              <form id="authSettingsForm" class="settings-form">
+                <h3 data-i18n="authSettingsTitle">Login credentials</h3>
+                <label>
+                  <span data-i18n="authCurrentPassword">Current password</span>
+                  <input name="current_password" type="password" autocomplete="current-password" required>
+                </label>
+                <label>
+                  <span data-i18n="authUsername">Username</span>
+                  <input name="username" autocomplete="username" value="admin" required maxlength="48">
+                </label>
+                <label>
+                  <span data-i18n="authNewPassword">New password</span>
+                  <input name="new_password" type="password" autocomplete="new-password" required minlength="4">
+                </label>
+                <button type="submit" data-i18n="authSave">Save login</button>
+              </form>
             </section>
 
             <section class="panel">
@@ -393,6 +409,6 @@
       </div>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin18" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin19" type="module"></script>
 </body>
 </html>

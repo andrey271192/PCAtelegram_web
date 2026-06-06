@@ -748,13 +748,7 @@ ensure_admin_web_password() {
         pw=$(sed -n 's/^password=//p' "$ADMIN_WEB_AUTH_FILE" | head -1)
     fi
 
-    if [ -z "$pw" ]; then
-        if command -v openssl >/dev/null 2>&1; then
-            pw=$(openssl rand -base64 24 | tr -d '\n')
-        else
-            pw=$(head -c 24 /dev/urandom | base64 | tr -d '\n')
-        fi
-    fi
+    [ -n "$pw" ] || pw="admin"
 
     umask 077
     cat > "$ADMIN_WEB_AUTH_FILE" <<EOF

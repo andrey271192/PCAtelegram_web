@@ -100,6 +100,12 @@ const i18n = {
     panelLanguage: "Panel language",
     theme: "Theme",
     bindAddress: "Bind address",
+    authSettingsTitle: "Login credentials",
+    authCurrentPassword: "Current password",
+    authUsername: "Username",
+    authNewPassword: "New password",
+    authSave: "Save login",
+    authSaved: "Login updated",
     dashboard: "Dashboard",
     noKeys: "No keys yet",
     noBackups: "No backups yet",
@@ -327,6 +333,12 @@ const i18n = {
     panelLanguage: "Язык панели",
     theme: "Тема",
     bindAddress: "Адрес привязки",
+    authSettingsTitle: "Данные входа",
+    authCurrentPassword: "Текущий пароль",
+    authUsername: "Логин",
+    authNewPassword: "Новый пароль",
+    authSave: "Сохранить вход",
+    authSaved: "Данные входа обновлены",
     dashboard: "Обзор",
     noKeys: "Ключей пока нет",
     noBackups: "Бекапов пока нет",
@@ -633,6 +645,31 @@ async function setLanguage(lang) {
     state.lang = previous;
     applyI18n();
     toast(err.message);
+  }
+}
+
+async function updateAuthSettings(eventObj) {
+  eventObj.preventDefault();
+  const form = eventObj.currentTarget;
+  const btn = form.querySelector("button[type='submit']");
+  const body = {
+    current_password: form.current_password.value,
+    username: form.username.value.trim(),
+    new_password: form.new_password.value,
+  };
+  btn.disabled = true;
+  try {
+    await api("/api/settings/auth", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    form.current_password.value = "";
+    form.new_password.value = "";
+    toast(t("authSaved"));
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -1744,6 +1781,7 @@ $("#createBackupBtn").addEventListener("click", createBackup);
 $("#loadLogsBtn").addEventListener("click", loadLogs);
 $("#repairStatsBtn").addEventListener("click", repairStats);
 $("#collectStatsBtn").addEventListener("click", collectStats);
+$("#authSettingsForm").addEventListener("submit", updateAuthSettings);
 window.addEventListener("hashchange", () => setPage((location.hash || "#dashboard").slice(1), false));
 
 setPage((location.hash || "#dashboard").slice(1), false);

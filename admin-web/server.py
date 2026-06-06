@@ -8,7 +8,6 @@ Installers generate /root/pcatelegram_web-admin.password for credentials.
 
 from __future__ import annotations
 
-import base64
 import csv
 import fcntl
 import hashlib
@@ -52,7 +51,10 @@ HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "0.0.0.0")
 PORT = int(os.getenv("PCATELEGRAM_WEB_ADMIN_PORT", "1984"))
 ADMIN_USER = os.getenv("PCATELEGRAM_WEB_ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.getenv("PCATELEGRAM_WEB_ADMIN_PASSWORD", "")
-ADMIN_REALM = os.getenv("PCATELEGRAM_WEB_ADMIN_REALM", "PCAtelegram_web")
+ADMIN_AUTH_FILE = Path(os.getenv("PCATELEGRAM_WEB_ADMIN_AUTH_FILE", "/root/pcatelegram_web-admin.password"))
+SESSION_COOKIE = "pcatelegram_web_session"
+SESSION_TTL_SECONDS = 12 * 60 * 60
+SESSIONS: dict[str, float] = {}
 VERSION = "2.5.0"
 USER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 LANG_RE = re.compile(r"^(en|ru)$")
@@ -69,15 +71,238 @@ TRAFFIC_WINDOWS = {
 }
 
 
-def load_admin_password_file() -> str:
-    path = Path(os.getenv("PCATELEGRAM_WEB_ADMIN_AUTH_FILE", "/root/pcatelegram_web-admin.password"))
+def load_admin_credentials() -> tuple[str, str]:
+    if ADMIN_PASSWORD:
+        return ADMIN_USER or "admin", ADMIN_PASSWORD
+    user = "admin"
+    password = "admin"
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in ADMIN_AUTH_FILE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("user="):
+                user = line.split("=", 1)[1].strip() or "admin"
             if line.startswith("password="):
-                return line.split("=", 1)[1].strip()
+                password = line.split("=", 1)[1].strip() or "admin"
     except OSError:
-        return ""
-    return ""
+        pass
+    return user, password
+
+
+def write_admin_credentials(username: str, password: str) -> None:
+    ADMIN_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = ADMIN_AUTH_FILE.with_suffix(".tmp")
+    body = "\n".join([
+        f"user={username}",
+        f"password={password}",
+        f"url=http://{public_host_for_notes()}:{PORT}/",
+        "",
+    ])
+    tmp.write_text(body, encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(ADMIN_AUTH_FILE)
+
+
+def public_host_for_notes() -> str:
+    try:
+        host = socket.gethostbyname(socket.gethostname())
+        if host and not host.startswith("127."):
+            return host
+    except OSError:
+        pass
+    code, out, _ = run(["hostname", "-I"], timeout=3)
+    if code == 0:
+        first = (out.strip().split() or [""])[0]
+        if first:
+            return first
+    return HOST if HOST != "0.0.0.0" else "127.0.0.1"
+
+
+def make_session() -> str:
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = time.time() + SESSION_TTL_SECONDS
+    return token
+
+
+def session_is_valid(token: str) -> bool:
+    exp = SESSIONS.get(token)
+    if not exp:
+        return False
+    if exp < time.time():
+        SESSIONS.pop(token, None)
+        return False
+    SESSIONS[token] = time.time() + SESSION_TTL_SECONDS
+    return True
+
+
+def clear_session(token: str) -> None:
+    if token:
+        SESSIONS.pop(token, None)
+
+
+def login_page() -> bytes:
+    return """<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PCAtelegram_web Login</title>
+  <style>
+    :root {
+      --bg: #efe6df;
+      --card: #fffafd;
+      --text: #251f1d;
+      --muted: #665b55;
+      --line: #d8c8bd;
+      --brand: #9a5f00;
+      --brand-dark: #805000;
+      --soft: #ffddb8;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(154, 95, 0, .10), transparent 30%),
+        linear-gradient(135deg, #efe6df, #f7efe9 48%, #eaded6);
+      color: var(--text);
+      padding: 24px;
+    }
+    .login-card {
+      width: min(560px, 100%);
+      border: 1px solid rgba(64, 49, 43, .22);
+      border-radius: 28px;
+      background: color-mix(in srgb, var(--card) 96%, white);
+      box-shadow: 0 30px 80px rgba(33, 28, 25, .22);
+      padding: clamp(26px, 5vw, 44px);
+    }
+    .brand {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .mark {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, #b87306, #805000);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 14px 30px rgba(128,80,0,.24);
+      font-weight: 900;
+      letter-spacing: 0;
+      font-size: 24px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 40px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; }
+    form { display: grid; gap: 18px; }
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 14px;
+    }
+    input {
+      min-height: 58px;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: #fffbff;
+      color: var(--text);
+      font: inherit;
+      font-size: 20px;
+      padding: 0 18px;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 4px rgba(154, 95, 0, .13);
+    }
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 14px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      min-height: 56px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 32px;
+      font: inherit;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .soft { background: var(--soft); color: var(--text); }
+    .primary { background: var(--brand); color: white; min-width: 150px; }
+    .primary:hover { background: var(--brand-dark); }
+    .hint { margin-top: 18px; color: var(--muted); font-size: 13px; }
+    .error { min-height: 22px; color: #b42318; font-weight: 800; }
+    @media (max-width: 520px) {
+      body { padding: 14px; }
+      .login-card { border-radius: 20px; }
+      .actions button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="brand">
+      <div class="mark">PCA</div>
+      <div>
+        <h1>PCAtelegram_web</h1>
+        <div class="subtitle">Web admin panel</div>
+      </div>
+    </div>
+    <form id="loginForm">
+      <label>Имя пользователя
+        <input name="username" autocomplete="username" value="admin" required autofocus>
+      </label>
+      <label>Пароль
+        <input name="password" type="password" autocomplete="current-password" value="admin" required>
+      </label>
+      <div id="error" class="error"></div>
+      <div class="actions">
+        <button type="reset" class="soft">Очистить</button>
+        <button type="submit" class="primary">Войти</button>
+      </div>
+    </form>
+    <p class="hint">По умолчанию: admin / admin. Смените пароль в Settings после входа.</p>
+  </main>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      const error = document.getElementById("error");
+      error.textContent = "";
+      const form = new FormData(ev.currentTarget);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: String(form.get("username") || ""),
+          password: String(form.get("password") || "")
+        })
+      });
+      if (res.ok) {
+        window.location.assign("/");
+      } else {
+        error.textContent = "Неверный логин или пароль";
+      }
+    });
+  </script>
+</body>
+</html>
+""".encode("utf-8")
 
 
 def utc_now() -> str:
@@ -1297,35 +1522,76 @@ class AdminHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:
         print("%s - %s" % (self.address_string(), fmt % args))
 
-    def auth_enabled(self) -> bool:
-        return bool(ADMIN_PASSWORD or load_admin_password_file())
+    def cookie_session(self) -> str:
+        raw = self.headers.get("Cookie", "")
+        for item in raw.split(";"):
+            item = item.strip()
+            if item.startswith(SESSION_COOKIE + "="):
+                return item.split("=", 1)[1]
+        return ""
 
     def is_authorized(self) -> bool:
-        if not self.auth_enabled():
-            return True
-        header = self.headers.get("Authorization", "")
-        if not header.startswith("Basic "):
-            return False
-        try:
-            decoded = base64.b64decode(header[6:].strip(), validate=True).decode("utf-8")
-            username, password = decoded.split(":", 1)
-        except Exception:
-            return False
-        expected_password = ADMIN_PASSWORD or load_admin_password_file()
-        return hmac.compare_digest(username, ADMIN_USER) and hmac.compare_digest(password, expected_password)
+        return session_is_valid(self.cookie_session())
 
     def require_auth(self) -> bool:
         if self.is_authorized():
             return True
-        body = b"Authentication required\n"
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", f'Basic realm="{ADMIN_REALM}"')
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_error_json(401, "unauthorized")
+        return False
+
+    def send_login_page(self) -> None:
+        body = login_page()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-        return False
+
+    def set_session_cookie(self, token: str) -> None:
+        self.send_header(
+            "Set-Cookie",
+            f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL_SECONDS}",
+        )
+
+    def clear_session_cookie(self) -> None:
+        self.send_header("Set-Cookie", f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
+
+    def credentials_match(self, username: str, password: str) -> bool:
+        expected_user, expected_password = load_admin_credentials()
+        return hmac.compare_digest(username, expected_user) and hmac.compare_digest(password, expected_password)
+
+    def handle_login(self) -> None:
+        try:
+            body = self.read_json_body()
+        except Exception:
+            self.send_error_json(400, "bad request")
+            return
+        username = str(body.get("username", "")).strip()
+        password = str(body.get("password", ""))
+        if not self.credentials_match(username, password):
+            self.send_error_json(401, "invalid credentials")
+            return
+        token = make_session()
+        payload = json.dumps({"ok": True, "data": {"user": username}}, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.set_session_cookie(token)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def handle_logout(self) -> None:
+        clear_session(self.cookie_session())
+        body = b'{"ok": true}\n'
+        self.send_response(200)
+        self.clear_session_cookie()
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def send_json(self, payload: Any, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -1611,6 +1877,28 @@ class AdminHandler(BaseHTTPRequestHandler):
                 self.send_error_json(400, str(exc))
                 return
             self.send_json({"ok": True, "data": lang_payload})
+        elif path == "/api/settings/auth":
+            current_password = str(body.get("current_password", ""))
+            username = str(body.get("username", "")).strip()
+            new_password = str(body.get("new_password", ""))
+            current_user, current_expected = load_admin_credentials()
+            if not hmac.compare_digest(current_password, current_expected):
+                self.send_error_json(403, "current password is wrong")
+                return
+            if not USER_RE.match(username):
+                self.send_error_json(400, "invalid username")
+                return
+            if len(new_password) < 4:
+                self.send_error_json(400, "password must be at least 4 chars")
+                return
+            try:
+                write_admin_credentials(username, new_password)
+            except Exception as exc:
+                self.send_error_json(500, f"failed to save credentials: {exc}")
+                return
+            self.send_json({"ok": True, "data": {"user": username, "changed": username != current_user or new_password != current_expected}})
+        elif path == "/api/auth/logout":
+            self.handle_logout()
         elif path.startswith("/api/services/") and path.endswith("/restart"):
             service = path[len("/api/services/"):-len("/restart")]
             allowed = {"telemt", "nginx", "pcatelegram_web-bot", "pcatelegram_web-stats"}
@@ -1678,18 +1966,25 @@ class AdminHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
-        if not self.require_auth():
-            return
         parsed = urllib.parse.urlparse(self.path)
+        if not self.is_authorized():
+            if parsed.path.startswith("/api/"):
+                self.send_error_json(401, "unauthorized")
+            else:
+                self.send_login_page()
+            return
         if parsed.path.startswith("/api/"):
             self.route_get_api(parsed)
         else:
             self.send_static(parsed)
 
     def do_POST(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/auth/login":
+            self.handle_login()
+            return
         if not self.require_auth():
             return
-        parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self.route_post_api(parsed)
         else:
