@@ -538,6 +538,7 @@ const state = {
   qrLink: "",
   pendingUsers: new Set(),
   refreshingAll: false,
+  deferredRefresh: false,
   autoRefreshEnabled: localStorage.getItem("pcatelegram_web-auto-refresh") !== "0",
 };
 
@@ -616,7 +617,7 @@ function syncAutoRefreshTimer() {
   }
   if (!state.autoRefreshEnabled) return;
   autoRefreshTimer = setInterval(() => {
-    refreshAll().catch((err) => toast(err.message));
+    refreshAll({ background: true }).catch((err) => toast(err.message));
   }, AUTO_REFRESH_MS);
 }
 
@@ -625,6 +626,22 @@ function setAutoRefresh(enabled) {
   localStorage.setItem("pcatelegram_web-auto-refresh", state.autoRefreshEnabled ? "1" : "0");
   updateAutoRefreshToggle();
   syncAutoRefreshTimer();
+}
+
+function activeEditable() {
+  const el = document.activeElement;
+  if (!el || el === document.body) return null;
+  return el.closest?.("input, select, textarea, [contenteditable='true']");
+}
+
+function isUserEditing() {
+  return Boolean(activeEditable());
+}
+
+function runDeferredRefresh() {
+  if (!state.deferredRefresh || isUserEditing()) return;
+  state.deferredRefresh = false;
+  refreshAll({ background: true }).catch((err) => toast(err.message));
 }
 
 async function api(path, options = {}) {
@@ -1516,11 +1533,15 @@ function renderRoutingSettings(payload = null) {
   setRoutingNotes(routing);
 }
 
-async function refreshAll() {
+async function refreshAll(options = {}) {
+  if (options.background && isUserEditing()) {
+    state.deferredRefresh = true;
+    return;
+  }
   if (state.refreshingAll) return;
   state.refreshingAll = true;
   const btn = $("#refreshBtn");
-  btn.disabled = true;
+  if (!options.background) btn.disabled = true;
   try {
     state.overview = await api("/api/overview");
     state.backupSchedule = state.overview.backup_schedule || state.backupSchedule;
@@ -1543,6 +1564,10 @@ async function refreshAll() {
         status: state.overview.stats_status || state.stats.status || {},
       };
     }
+    if (options.background && isUserEditing()) {
+      state.deferredRefresh = true;
+      return;
+    }
     renderOverview();
     renderUsers();
     renderRoutingSettings();
@@ -1556,7 +1581,7 @@ async function refreshAll() {
   } catch (err) {
     toast(err.message);
   } finally {
-    btn.disabled = false;
+    if (!options.background) btn.disabled = false;
     state.refreshingAll = false;
     updateAutoRefreshToggle();
   }
@@ -2041,6 +2066,9 @@ $("#routingPort").addEventListener("change", (eventObj) => checkRoutingPort(even
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
 $("#warpUserSelect").addEventListener("change", renderWarpSettings);
+document.addEventListener("focusout", () => {
+  setTimeout(runDeferredRefresh, 120);
+});
 window.addEventListener("hashchange", () => setPage((location.hash || "#dashboard").slice(1), false));
 
 setPage((location.hash || "#dashboard").slice(1), false);
