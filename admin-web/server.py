@@ -3,14 +3,17 @@
 goTelegram Pro local web admin.
 
 The service is intentionally bound to 127.0.0.1:1984. Operators reach it
-through an SSH tunnel; it must never be exposed directly on the public network.
+through an SSH tunnel by default. If exposed through a reverse proxy or public
+bind, enable GOTELEGRAM_ADMIN_PASSWORD.
 """
 
 from __future__ import annotations
 
+import base64
 import csv
 import fcntl
 import hashlib
+import hmac
 import json
 import mimetypes
 import os
@@ -48,6 +51,9 @@ BACKUP_RESTORE_LOG = Path(os.getenv("GOTELEGRAM_BACKUP_RESTORE_LOG", "/var/log/g
 
 HOST = os.getenv("GOTELEGRAM_ADMIN_HOST", "127.0.0.1")
 PORT = int(os.getenv("GOTELEGRAM_ADMIN_PORT", "1984"))
+ADMIN_USER = os.getenv("GOTELEGRAM_ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.getenv("GOTELEGRAM_ADMIN_PASSWORD", "")
+ADMIN_REALM = os.getenv("GOTELEGRAM_ADMIN_REALM", "GoTelegram")
 VERSION = "2.5.0"
 USER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 LANG_RE = re.compile(r"^(en|ru)$")
@@ -1281,6 +1287,35 @@ class AdminHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:
         print("%s - %s" % (self.address_string(), fmt % args))
 
+    def auth_enabled(self) -> bool:
+        return bool(ADMIN_PASSWORD)
+
+    def is_authorized(self) -> bool:
+        if not self.auth_enabled():
+            return True
+        header = self.headers.get("Authorization", "")
+        if not header.startswith("Basic "):
+            return False
+        try:
+            decoded = base64.b64decode(header[6:].strip(), validate=True).decode("utf-8")
+            username, password = decoded.split(":", 1)
+        except Exception:
+            return False
+        return hmac.compare_digest(username, ADMIN_USER) and hmac.compare_digest(password, ADMIN_PASSWORD)
+
+    def require_auth(self) -> bool:
+        if self.is_authorized():
+            return True
+        body = b"Authentication required\n"
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", f'Basic realm="{ADMIN_REALM}"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        return False
+
     def send_json(self, payload: Any, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -1632,6 +1667,8 @@ class AdminHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self.route_get_api(parsed)
@@ -1639,6 +1676,8 @@ class AdminHandler(BaseHTTPRequestHandler):
             self.send_static(parsed)
 
     def do_POST(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self.route_post_api(parsed)
@@ -1646,6 +1685,8 @@ class AdminHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_DELETE(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self.route_delete_api(parsed)

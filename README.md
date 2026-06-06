@@ -50,6 +50,33 @@ ssh root@SERVER 'chmod +x /opt/gotelegram/install.sh /opt/gotelegram/install_got
 | `GOTELEGRAM_BASE` | `https://raw.githubusercontent.com/andrey271192/gotelegram/main` | база загрузки файлов |
 | `GOTELEGRAM_INSTALL_DIR` | `/opt/gotelegram` | путь установки |
 | `GITHUB_TOKEN` / `GH_TOKEN` | пусто | token для private GitHub raw downloads |
+| `GOTELEGRAM_ADMIN_HOST` | `127.0.0.1` | bind web-admin |
+| `GOTELEGRAM_ADMIN_PORT` | `1984` | port web-admin |
+| `GOTELEGRAM_ADMIN_USER` | `admin` | Basic Auth login |
+| `GOTELEGRAM_ADMIN_PASSWORD` | пусто | Basic Auth password; обязателен при public bind |
+
+## Web-admin
+
+После первого запуска `gotelegram` локальная web-admin панель ставится как `gotelegram-admin.service`.
+
+Безопасный локальный доступ через SSH tunnel:
+
+```bash
+ssh -L 1984:127.0.0.1:1984 root@SERVER
+open http://127.0.0.1:1984/
+```
+
+Для public bind сначала задайте пароль через systemd override или reverse proxy:
+
+```ini
+[Service]
+Environment=GOTELEGRAM_ADMIN_HOST=0.0.0.0
+Environment=GOTELEGRAM_ADMIN_PORT=1984
+Environment=GOTELEGRAM_ADMIN_USER=admin
+Environment=GOTELEGRAM_ADMIN_PASSWORD=change-me
+```
+
+Без HTTPS public Basic Auth гонит пароль открытым текстом. Для постоянного доступа лучше reverse proxy с TLS.
 
 ## Проверки
 
