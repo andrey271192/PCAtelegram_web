@@ -604,14 +604,73 @@ def user_warp_payload(name: str) -> dict[str, Any]:
     }
 
 
+def install_warp_cli() -> dict[str, Any]:
+    result: dict[str, Any] = {"attempted": False, "installed": bool(shutil.which("warp-cli")), "commands": [], "warnings": []}
+    if result["installed"]:
+        return result
+    if os.geteuid() != 0:
+        result["warnings"].append("root required to install cloudflare-warp")
+        return result
+
+    def call(label: str, cmd: list[str], timeout: int = 120) -> tuple[int, str, str]:
+        result["attempted"] = True
+        code, out, err = run(cmd, timeout=timeout)
+        result["commands"].append({"cmd": label, "exit_code": code})
+        return code, out, err
+
+    apt_get = shutil.which("apt-get")
+    dnf = shutil.which("dnf")
+    yum = shutil.which("yum")
+
+    if apt_get:
+        script = r"""
+set -e
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y curl gpg lsb-release ca-certificates
+install -d -m 0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflare-client.list
+apt-get update
+apt-get install -y cloudflare-warp
+"""
+        code, _, err = call("install cloudflare-warp via apt", ["bash", "-lc", script], timeout=420)
+        if code != 0:
+            result["warnings"].append(err.strip() or "apt install failed")
+    elif dnf or yum:
+        manager = dnf or yum
+        repo_url = "https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo"
+        script = f"""
+set -e
+rpm --import https://pkg.cloudflareclient.com/pubkey.gpg || true
+curl -fsSL {shlex.quote(repo_url)} > /etc/yum.repos.d/cloudflare-warp.repo
+{shlex.quote(manager)} install -y cloudflare-warp
+"""
+        code, _, err = call("install cloudflare-warp via rpm repo", ["bash", "-lc", script], timeout=420)
+        if code != 0:
+            result["warnings"].append(err.strip() or "rpm install failed")
+    else:
+        result["warnings"].append("supported package manager not found")
+
+    result["installed"] = bool(shutil.which("warp-cli"))
+    if not result["installed"] and not result["warnings"]:
+        result["warnings"].append("warp-cli still not available after install")
+    return result
+
+
 def apply_warp_runtime(cfg: dict[str, Any]) -> dict[str, Any]:
     warp_cli = shutil.which("warp-cli")
-    result: dict[str, Any] = {"applied": False, "commands": [], "warnings": []}
+    result: dict[str, Any] = {"applied": False, "install": {"attempted": False, "installed": bool(warp_cli)}, "commands": [], "warnings": []}
+    if cfg["enabled"] and cfg["mode"] != "off" and not warp_cli:
+        install_result = install_warp_cli()
+        result["install"] = install_result
+        result["warnings"].extend(install_result.get("warnings", []))
+        warp_cli = shutil.which("warp-cli")
+    if (not cfg["enabled"] or cfg["mode"] == "off") and not warp_cli:
+        result["applied"] = True
+        return result
     if not warp_cli:
         result["warnings"].append("warp-cli not installed")
-        return result
-    if cfg["scope"] == "user":
-        result["warnings"].append("per-user WARP route saved only; telemt per-user upstream routing is not documented")
         return result
 
     def call(args: list[str], timeout: int = 20) -> tuple[int, str, str]:
@@ -625,6 +684,10 @@ def apply_warp_runtime(cfg: dict[str, Any]) -> dict[str, Any]:
     if not cfg["enabled"] or cfg["mode"] == "off":
         call(["disconnect"], timeout=15)
         result["applied"] = True
+        return result
+
+    if cfg["scope"] == "user":
+        result["warnings"].append("per-user WARP route saved only; telemt per-user upstream routing is not documented")
         return result
 
     run(["systemctl", "enable", "--now", "warp-svc"], timeout=20)

@@ -94,12 +94,12 @@ PCATELEGRAM_WEB_ADMIN_PASSWORD='strong-password' bash bootstrap.sh
 - `Off` — WARP выключен.
 - `WARP` — обычный Cloudflare WARP.
 - `WARP+` — WARP+ с license key.
-- `All clients` — применяет WARP на весь proxy-трафик через `warp-cli`, если Cloudflare WARP установлен на сервере.
-- `One client` — сохраняет WARP/WARP+ профиль и key для выбранного клиента в `/opt/pcatelegram_web/warp.json`.
+- `All clients` — если `warp-cli` не установлен, web-admin ставит `cloudflare-warp`, затем применяет WARP на весь proxy-трафик через `warp-cli`.
+- `One client` — если `warp-cli` не установлен, web-admin ставит `cloudflare-warp`, затем сохраняет WARP/WARP+ профиль и key для выбранного клиента в `/opt/pcatelegram_web/warp.json`.
 
 WARP+ key не отдается в API целиком: web показывает только маску. Файл `warp.json` хранится с правами `0600` и входит в backup.
 
-Для реального global WARP на сервере нужен установленный `cloudflare-warp` и доступная команда `warp-cli`. По документации Cloudflare: регистрация `warp-cli registration new`, WARP+ key `warp-cli registration license <KEY>`, подключение `warp-cli connect`.
+Для real global WARP web-admin использует официальный Cloudflare Linux repo: добавляет GPG key, repo `pkg.cloudflareclient.com`, ставит пакет `cloudflare-warp`, затем выполняет регистрацию `warp-cli registration new`, WARP+ key `warp-cli registration license <KEY>`, подключение `warp-cli connect`.
 
 Per-client runtime routing в текущем telemt не включается автоматически: публичные параметры telemt дают users/limits/quotas/ad tags, но не документируют привязку upstream к конкретному user. Для настоящего WARP только одному клиенту нужен отдельный telemt route/service или upstream-схема.
 
