@@ -20,8 +20,9 @@ LOG_FILE="/var/log/pcatelegram_web.log"
 BOT_DIR="/opt/pcatelegram_web-bot"
 ADMIN_WEB_DIR="/opt/pcatelegram_web-admin"
 ADMIN_WEB_SERVICE="pcatelegram_web-admin"
-ADMIN_WEB_HOST="127.0.0.1"
+ADMIN_WEB_HOST="0.0.0.0"
 ADMIN_WEB_PORT="1984"
+ADMIN_WEB_AUTH_FILE="/root/pcatelegram_web-admin.password"
 
 # ── V1 совместимость ─────────────────────────────────────────────────────────
 V1_CONTAINER_NAME="mtproto-proxy"
@@ -737,4 +738,30 @@ validate_domain() {
 init_dirs() {
     mkdir -p "$PCATELEGRAM_WEB_DIR" "$BACKUP_DIR" /etc/telemt 2>/dev/null
     touch "$LOG_FILE" 2>/dev/null
+}
+
+ensure_admin_web_password() {
+    local pw=""
+    if [ -n "${PCATELEGRAM_WEB_ADMIN_PASSWORD:-}" ]; then
+        pw="$PCATELEGRAM_WEB_ADMIN_PASSWORD"
+    elif [ -f "$ADMIN_WEB_AUTH_FILE" ] && [ -s "$ADMIN_WEB_AUTH_FILE" ]; then
+        pw=$(sed -n 's/^password=//p' "$ADMIN_WEB_AUTH_FILE" | head -1)
+    fi
+
+    if [ -z "$pw" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            pw=$(openssl rand -base64 24 | tr -d '\n')
+        else
+            pw=$(head -c 24 /dev/urandom | base64 | tr -d '\n')
+        fi
+    fi
+
+    umask 077
+    cat > "$ADMIN_WEB_AUTH_FILE" <<EOF
+user=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
+password=${pw}
+url=http://$(get_server_ip 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}'):${ADMIN_WEB_PORT}/
+EOF
+    chmod 600 "$ADMIN_WEB_AUTH_FILE" 2>/dev/null || true
+    printf '%s' "$pw"
 }

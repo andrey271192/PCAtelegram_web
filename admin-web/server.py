@@ -2,9 +2,8 @@
 """
 PCAtelegram_web local web admin.
 
-The service is intentionally bound to 127.0.0.1:1984. Operators reach it
-through an SSH tunnel by default. If exposed through a reverse proxy or public
-bind, enable PCATELEGRAM_WEB_ADMIN_PASSWORD.
+The service is publicly reachable by default and protected with Basic Auth.
+Installers generate /root/pcatelegram_web-admin.password for credentials.
 """
 
 from __future__ import annotations
@@ -49,7 +48,7 @@ SHARED_443_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_SHARED_443", "/opt/pcatelegr
 BACKUP_SCHEDULE_FILE = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_SCHEDULE", "/opt/pcatelegram_web/backup_schedule.json"))
 BACKUP_RESTORE_LOG = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_RESTORE_LOG", "/var/log/pcatelegram_web-restore.log"))
 
-HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "127.0.0.1")
+HOST = os.getenv("PCATELEGRAM_WEB_ADMIN_HOST", "0.0.0.0")
 PORT = int(os.getenv("PCATELEGRAM_WEB_ADMIN_PORT", "1984"))
 ADMIN_USER = os.getenv("PCATELEGRAM_WEB_ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.getenv("PCATELEGRAM_WEB_ADMIN_PASSWORD", "")
@@ -68,6 +67,17 @@ TRAFFIC_WINDOWS = {
     "24h": 24 * 60 * 60,
     "month": 30 * 24 * 60 * 60,
 }
+
+
+def load_admin_password_file() -> str:
+    path = Path(os.getenv("PCATELEGRAM_WEB_ADMIN_AUTH_FILE", "/root/pcatelegram_web-admin.password"))
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("password="):
+                return line.split("=", 1)[1].strip()
+    except OSError:
+        return ""
+    return ""
 
 
 def utc_now() -> str:
@@ -1288,7 +1298,7 @@ class AdminHandler(BaseHTTPRequestHandler):
         print("%s - %s" % (self.address_string(), fmt % args))
 
     def auth_enabled(self) -> bool:
-        return bool(ADMIN_PASSWORD)
+        return bool(ADMIN_PASSWORD or load_admin_password_file())
 
     def is_authorized(self) -> bool:
         if not self.auth_enabled():
@@ -1301,7 +1311,8 @@ class AdminHandler(BaseHTTPRequestHandler):
             username, password = decoded.split(":", 1)
         except Exception:
             return False
-        return hmac.compare_digest(username, ADMIN_USER) and hmac.compare_digest(password, ADMIN_PASSWORD)
+        expected_password = ADMIN_PASSWORD or load_admin_password_file()
+        return hmac.compare_digest(username, ADMIN_USER) and hmac.compare_digest(password, expected_password)
 
     def require_auth(self) -> bool:
         if self.is_authorized():

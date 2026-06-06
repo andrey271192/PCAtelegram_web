@@ -902,8 +902,9 @@ install_admin_web() {
     chmod 755 "$ADMIN_WEB_DIR/server.py" "$ADMIN_WEB_DIR/static"
     rm -f "$ADMIN_WEB_DIR/token" 2>/dev/null || true
 
-    local python_bin
+    local python_bin admin_password
     python_bin=$(command -v python3)
+    admin_password=$(ensure_admin_web_password)
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << SVCEOF
 [Unit]
 Description=PCAtelegram_web v${PCATELEGRAM_WEB_VERSION} Local Web Admin
@@ -917,6 +918,8 @@ Restart=always
 RestartSec=5
 Environment=PCATELEGRAM_WEB_ADMIN_HOST=$ADMIN_WEB_HOST
 Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
+Environment=PCATELEGRAM_WEB_ADMIN_USER=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
+Environment=PCATELEGRAM_WEB_ADMIN_PASSWORD=$admin_password
 
 [Install]
 WantedBy=multi-user.target
@@ -928,7 +931,8 @@ SVCEOF
     if type install_stats_collector &>/dev/null; then
         install_stats_collector >/dev/null 2>&1 || log_warning "stats collector was not started; open Web Admin traffic page and use Repair"
     fi
-    log_success "Web admin installed: ${ADMIN_WEB_HOST}:${ADMIN_WEB_PORT}"
+    log_success "Web admin installed: http://$(get_server_ip):${ADMIN_WEB_PORT}/"
+    log_info "Web admin login saved: $ADMIN_WEB_AUTH_FILE"
 }
 
 auto_install_admin_web_if_possible() {

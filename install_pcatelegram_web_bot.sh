@@ -15,6 +15,32 @@ PCATELEGRAM_WEB_DIR="/opt/pcatelegram_web"
 ADMIN_WEB_DIR="/opt/pcatelegram_web-admin"
 ADMIN_WEB_SERVICE="pcatelegram_web-admin"
 ADMIN_WEB_PORT="1984"
+ADMIN_WEB_HOST="0.0.0.0"
+ADMIN_WEB_AUTH_FILE="/root/pcatelegram_web-admin.password"
+
+ensure_admin_web_password() {
+    local pw=""
+    if [ -n "${PCATELEGRAM_WEB_ADMIN_PASSWORD:-}" ]; then
+        pw="$PCATELEGRAM_WEB_ADMIN_PASSWORD"
+    elif [ -f "$ADMIN_WEB_AUTH_FILE" ] && [ -s "$ADMIN_WEB_AUTH_FILE" ]; then
+        pw=$(sed -n 's/^password=//p' "$ADMIN_WEB_AUTH_FILE" | head -1)
+    fi
+    if [ -z "$pw" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            pw=$(openssl rand -base64 24 | tr -d '\n')
+        else
+            pw=$(head -c 24 /dev/urandom | base64 | tr -d '\n')
+        fi
+    fi
+    umask 077
+    cat > "$ADMIN_WEB_AUTH_FILE" <<EOF
+user=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
+password=${pw}
+url=http://$(hostname -I 2>/dev/null | awk '{print $1}'):${ADMIN_WEB_PORT}/
+EOF
+    chmod 600 "$ADMIN_WEB_AUTH_FILE" 2>/dev/null || true
+    printf '%s' "$pw"
+}
 
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Запустите с sudo.${NC}"
@@ -128,6 +154,7 @@ if [ -f "$SCRIPT_DIR/admin-web/server.py" ]; then
     rm -f "$ADMIN_WEB_DIR/token" 2>/dev/null || true
 
     PYTHON_BIN=$(command -v python3)
+    ADMIN_WEB_PASSWORD=$(ensure_admin_web_password)
     cat > "/etc/systemd/system/${ADMIN_WEB_SERVICE}.service" << EOF
 [Unit]
 Description=PCAtelegram_web v2.5.0 Local Web Admin
@@ -139,8 +166,10 @@ WorkingDirectory=$ADMIN_WEB_DIR
 ExecStart=$PYTHON_BIN $ADMIN_WEB_DIR/server.py
 Restart=always
 RestartSec=5
-Environment=PCATELEGRAM_WEB_ADMIN_HOST=127.0.0.1
+Environment=PCATELEGRAM_WEB_ADMIN_HOST=$ADMIN_WEB_HOST
 Environment=PCATELEGRAM_WEB_ADMIN_PORT=$ADMIN_WEB_PORT
+Environment=PCATELEGRAM_WEB_ADMIN_USER=${PCATELEGRAM_WEB_ADMIN_USER:-admin}
+Environment=PCATELEGRAM_WEB_ADMIN_PASSWORD=$ADMIN_WEB_PASSWORD
 
 [Install]
 WantedBy=multi-user.target
