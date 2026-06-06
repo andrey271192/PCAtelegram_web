@@ -69,12 +69,13 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `PCATELEGRAM_WEB_ADMIN_PASSWORD` | `admin` | web-admin password |
 | `PCATELEGRAM_WEB_WARP_CONFIG` | `/opt/pcatelegram_web/warp.json` | WARP / WARP+ settings |
 
-## Поддержка
+## Поддержать проект
 
-- **GitHub:** [andrey271192/PCAtelegram_web](https://github.com/andrey271192/PCAtelegram_web)
-- **Boosty:** [boosty.to/andrey27/donate](https://boosty.to/andrey27/donate)
-- **Ozon Bank:** [ссылка](https://finance.ozon.ru/apps/sbp/ozonbankpay/019dc200-2a5d-7931-a619-782d285f6798)
-- **Telegram:** [PCAdministration](https://t.me/PCAdministration)
+Если проект оказался полезным — буду рад поддержке. Это помогает развивать и поддерживать его дальше.
+
+- [Boosty](https://boosty.to/andrey27/donate)
+- [Ozon СБП](https://finance.ozon.ru/apps/sbp/ozonbankpay/019dc200-2a5d-7931-a619-782d285f6798)
+- Telegram: [@PCAdministration](https://t.me/PCAdministration) — вопросы, идеи, обратная связь
 
 ## Web-admin
 
