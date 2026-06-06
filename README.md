@@ -103,6 +103,17 @@ WARP+ key не отдается в API целиком: web показывает 
 
 Per-client runtime routing в текущем telemt не включается автоматически: публичные параметры telemt дают users/limits/quotas/ad tags, но не документируют привязку upstream к конкретному user. Для настоящего WARP только одному клиенту нужен отдельный telemt route/service или upstream-схема.
 
+## Порт и маскировка
+
+В web-admin Settings есть блок `Port and mask site`:
+
+- `Public port` — реальный порт `telemt` (`[server] port`) и порт в tg-ссылках (`[general.links] public_port`).
+- `Mask site` — сайт маскировки FakeTLS (`[censorship] tls_domain`), который вшивается в `ee` secret.
+- Перед сохранением web-admin проверяет порт через `ss`. Если порт занят не `telemt` (например, Xray / 3x-ui на 443), сохранение блокируется.
+- После сохранения обновляются `/etc/telemt/config.toml`, `/opt/pcatelegram_web/config.json`, ссылки клиентов и перезапускается `telemt`.
+
+Один `telemt`-инстанс имеет один публичный порт и один сайт маскировки для всех клиентов. Разные порты или разные сайты маскировки на разных клиентов требуют отдельные `telemt` services/configs.
+
 ## Проверки
 
 ```bash

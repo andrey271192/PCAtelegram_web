@@ -120,6 +120,36 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
+                  <p class="eyebrow" data-i18n="routingEyebrow">Network</p>
+                  <h2 data-i18n="routingTitle">Port and mask site</h2>
+                </div>
+                <span id="routingStatus" class="status-pill">--</span>
+              </div>
+              <form id="routingSettingsForm" class="settings-form">
+                <label>
+                  <span data-i18n="routingPort">Public port</span>
+                  <input id="routingPort" name="port" type="number" min="1" max="65535" step="1" inputmode="numeric" placeholder="443">
+                </label>
+                <label>
+                  <span data-i18n="routingMaskHost">Mask site</span>
+                  <input id="routingMaskHost" name="mask_host" list="maskHostOptions" autocomplete="off" spellcheck="false" placeholder="google.com">
+                  <datalist id="maskHostOptions">
+                    <option value="google.com"></option>
+                    <option value="cloudflare.com"></option>
+                    <option value="microsoft.com"></option>
+                    <option value="apple.com"></option>
+                    <option value="github.com"></option>
+                    <option value="wikipedia.org"></option>
+                  </datalist>
+                </label>
+                <p id="routingRuntimeNote" class="modal-note"></p>
+                <button type="submit" data-i18n="routingSave">Save routing</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
                   <p class="eyebrow" data-i18n="runtimeEyebrow">Runtime</p>
                   <h2 class="with-help"><span data-i18n="runtimeTitle">telemt summary</span><span class="info-hint" tabindex="0" data-i18n-title="runtimeHelp" title="Runtime data">?</span></h2>
                 </div>
@@ -440,6 +470,6 @@
       <button id="qrCopyBtn" type="button" class="soft" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin22" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin23" type="module"></script>
 </body>
 </html>

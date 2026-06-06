@@ -60,6 +60,7 @@ SESSIONS: dict[str, float] = {}
 VERSION = "2.5.0"
 USER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 LANG_RE = re.compile(r"^(en|ru)$")
+HOST_RE = re.compile(r"^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$")
 SENSITIVE_CONFIG_KEYS = {"secret"}
 BACKUP_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+\.tar\.gz(\.enc)?$")
 MAX_UNIQUE_IP_LIMIT = 1000000
@@ -1029,6 +1030,118 @@ def read_telemt_edge_settings() -> dict[str, Any]:
     return settings
 
 
+def normalize_port(value: Any) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("port must be a number") from None
+    if port < 1 or port > 65535:
+        raise ValueError("port must be between 1 and 65535")
+    return port
+
+
+def normalize_mask_host(value: Any) -> str:
+    host = str(value or "").strip().lower().rstrip(".")
+    if not HOST_RE.match(host):
+        raise ValueError("mask site must be a valid domain")
+    return host
+
+
+def update_toml_scalar(section: str, key: str, literal: str) -> None:
+    TELEMT_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    lines = TELEMT_CONFIG.read_text(encoding="utf-8", errors="ignore").splitlines() if TELEMT_CONFIG.exists() else []
+    header = f"[{section}]"
+    out: list[str] = []
+    current = ""
+    found_section = False
+    wrote_key = False
+
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if current == section and not wrote_key:
+                out.append(f"{key} = {literal}")
+                wrote_key = True
+            current = stripped.strip("[]")
+            if stripped == header:
+                found_section = True
+            out.append(raw)
+            continue
+        if current == section and stripped.startswith(key) and "=" in stripped:
+            out.append(f"{key} = {literal}")
+            wrote_key = True
+            continue
+        out.append(raw)
+
+    if not found_section:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(header)
+        out.append(f"{key} = {literal}")
+    elif current == section and not wrote_key:
+        out.append(f"{key} = {literal}")
+
+    tmp = TELEMT_CONFIG.with_name(TELEMT_CONFIG.name + ".tmp")
+    tmp.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(TELEMT_CONFIG)
+
+
+def routing_payload(port: int | None = None) -> dict[str, Any]:
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    settings = read_telemt_edge_settings()
+    current_port = int(port or config.get("port") or read_telemt_port() or 443)
+    mask_host = str(config.get("mask_host") or settings.get("tls_domain") or "google.com")
+    listeners, errors = collect_port_listeners(current_port)
+    conflicts = [
+        item for item in listeners
+        if item.get("role") != "mtproxy" and "telemt" not in str(item.get("process", "")).lower()
+    ]
+    return {
+        "port": current_port,
+        "mask_host": mask_host,
+        "mask_port": int(settings.get("mask_port") or 443),
+        "mode": str(config.get("mode") or "lite"),
+        "domain": str(config.get("domain") or ""),
+        "listeners": listeners,
+        "conflicts": conflicts,
+        "ok": not errors,
+        "error": "; ".join(errors[:2]),
+        "per_user_ports_supported": False,
+        "note": "telemt has one server.port per instance; real per-client ports need multiple telemt services.",
+    }
+
+
+def write_routing_settings(port: int, mask_host: str) -> dict[str, Any]:
+    listeners, _ = collect_port_listeners(port)
+    conflicts = [
+        item for item in listeners
+        if item.get("role") != "mtproxy" and "telemt" not in str(item.get("process", "")).lower()
+    ]
+    if conflicts:
+        names = ", ".join(f"{item.get('process')} {item.get('address')}" for item in conflicts[:3])
+        raise RuntimeError(f"port is busy: {names}")
+
+    update_toml_scalar("server", "port", str(port))
+    update_toml_scalar("general.links", "public_port", str(port))
+    update_toml_scalar("censorship", "tls_domain", json.dumps(mask_host))
+
+    config = load_json(PCATELEGRAM_WEB_CONFIG, {}) or {}
+    if not isinstance(config, dict):
+        config = {}
+    config["port"] = port
+    config["mask_host"] = mask_host
+    config["updated_at"] = utc_now()
+    save_json(PCATELEGRAM_WEB_CONFIG, config)
+
+    restarted = False
+    if service_status("telemt") != "not_installed":
+        restarted = request_service_restart("telemt")
+    payload = routing_payload(port)
+    payload["restart"] = {"requested": restarted}
+    return payload
+
+
 def load_shared443_config() -> dict[str, Any]:
     raw = load_json(SHARED_443_CONFIG, {}) or {}
     if not isinstance(raw, dict):
@@ -1171,7 +1284,8 @@ def proxy_link(secret: str) -> str:
     mask_host = str(config.get("mask_host", "") or "")
 
     if mode == "pro" and domain:
-        host_hex = domain.encode().hex()
+        link_mask = mask_host or domain
+        host_hex = link_mask.encode().hex()
         return f"tg://proxy?server={domain}&port={port}&secret=ee{secret}{host_hex}"
 
     server = public_ip()
@@ -1750,6 +1864,7 @@ def overview_payload() -> dict[str, Any]:
         "backups": list_backups(),
         "backup_schedule": backup_schedule_status(),
         "warp": public_warp_config(),
+        "routing": routing_payload(),
     }
 
 
@@ -1868,6 +1983,15 @@ class AdminHandler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/api/overview":
             self.send_json({"ok": True, "data": overview_payload()})
+        elif path == "/api/routing":
+            qs = urllib.parse.parse_qs(parsed.query)
+            port_raw = qs.get("port", [""])[0]
+            try:
+                port = normalize_port(port_raw) if port_raw else None
+            except ValueError as exc:
+                self.send_error_json(400, str(exc))
+                return
+            self.send_json({"ok": True, "data": routing_payload(port)})
         elif path == "/api/warp":
             self.send_json({"ok": True, "data": public_warp_config()})
         elif path == "/api/users":
@@ -2009,6 +2133,21 @@ class AdminHandler(BaseHTTPRequestHandler):
                 return
             restart_requested = request_service_restart("telemt")
             self.send_json({"ok": True, "data": user_payload(name, secret, True, 0), "restart": {"mode": "async", "requested": restart_requested}})
+        elif path == "/api/routing":
+            try:
+                port = normalize_port(body.get("port"))
+                mask_host = normalize_mask_host(body.get("mask_host"))
+                payload = write_routing_settings(port, mask_host)
+            except ValueError as exc:
+                self.send_error_json(400, str(exc))
+                return
+            except RuntimeError as exc:
+                self.send_error_json(409, str(exc))
+                return
+            except Exception as exc:
+                self.send_error_json(500, f"failed to save routing: {exc}")
+                return
+            self.send_json({"ok": True, "data": payload})
         elif path.startswith("/api/users/") and path.endswith("/max-ips"):
             name = urllib.parse.unquote(path[len("/api/users/"):-len("/max-ips")])
             try:

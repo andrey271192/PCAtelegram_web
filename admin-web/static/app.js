@@ -106,6 +106,16 @@ const i18n = {
     authNewPassword: "New password",
     authSave: "Save login",
     authSaved: "Login updated",
+    routingEyebrow: "Network",
+    routingTitle: "Port and mask site",
+    routingPort: "Public port",
+    routingMaskHost: "Mask site",
+    routingSave: "Save routing",
+    routingSaved: "Routing saved",
+    routingOk: "port free",
+    routingBusy: "port busy",
+    routingPerUserNote: "One telemt instance has one public port and one mask site for all links. Different ports per client need separate telemt services.",
+    routingCurrentMask: "Mask site: {value}",
     warpEyebrow: "Routing",
     warpTitle: "WARP / WARP+",
     warpMode: "Mode",
@@ -350,6 +360,16 @@ const i18n = {
     authNewPassword: "Новый пароль",
     authSave: "Сохранить вход",
     authSaved: "Данные входа обновлены",
+    routingEyebrow: "Сеть",
+    routingTitle: "Порт и маскировка",
+    routingPort: "Публичный порт",
+    routingMaskHost: "Сайт маскировки",
+    routingSave: "Сохранить маршрут",
+    routingSaved: "Маршрутизация сохранена",
+    routingOk: "порт свободен",
+    routingBusy: "порт занят",
+    routingPerUserNote: "Один telemt-инстанс имеет один публичный порт и один сайт маскировки для всех ссылок. Разные порты на клиентов требуют отдельные telemt-сервисы.",
+    routingCurrentMask: "Маскировка: {value}",
     warpEyebrow: "Маршрутизация",
     warpTitle: "WARP / WARP+",
     warpMode: "Режим",
@@ -509,6 +529,7 @@ const state = {
   userTraffic: null,
   userTrafficLoading: false,
   backupSchedule: null,
+  routing: null,
   warp: null,
   qrLink: "",
   pendingUsers: new Set(),
@@ -638,6 +659,7 @@ function applyI18n() {
   updateTrafficControls();
   updateUserTrafficControls();
   renderBackupSchedule();
+  renderRoutingSettings();
   renderWarpSettings();
   updatePageTitle();
   updateAutoRefreshToggle();
@@ -1383,8 +1405,11 @@ function renderEvents() {
 function renderConfig() {
   const cfg = state.overview?.config || {};
   const site = state.overview?.site_status || {};
+  const routing = state.routing || state.overview?.routing || {};
   const items = [
     [t("configMode"), cfg.mode || "--"],
+    [t("routingPort"), routing.port || cfg.port || "--"],
+    [t("routingMaskHost"), routing.mask_host || cfg.mask_host || cfg.domain || "--"],
     [t("configDomain"), cfg.domain || cfg.mask_host || "--"],
     [t("configSiteStatus"), siteStatusText(site)],
     [t("configTemplate"), cfg.template_id || cfg.template || "--"],
@@ -1399,6 +1424,34 @@ function renderConfig() {
   `).join("");
 }
 
+function routingSummary(payload) {
+  const conflicts = payload?.conflicts || [];
+  if (conflicts.length) {
+    return `${t("routingBusy")}: ${conflicts.map((item) => `${item.process} ${item.address}`).join(", ")}`;
+  }
+  const listeners = payload?.listeners || [];
+  const listenerText = listeners.length
+    ? listeners.map((item) => `${item.process} ${item.address}`).join(", ")
+    : t("routingOk");
+  const mask = t("routingCurrentMask").replace("{value}", payload?.mask_host || "--");
+  return `${listenerText}. ${mask}. ${t("routingPerUserNote")}`;
+}
+
+function renderRoutingSettings(payload = null) {
+  const routing = payload || state.routing || state.overview?.routing || {};
+  const portEl = $("#routingPort");
+  const maskEl = $("#routingMaskHost");
+  if (!portEl || !maskEl) return;
+  if (!payload) {
+    portEl.value = routing.port || 443;
+    maskEl.value = routing.mask_host || "google.com";
+  }
+  const conflicts = routing.conflicts || [];
+  $("#routingStatus").textContent = conflicts.length ? t("routingBusy") : t("routingOk");
+  $("#routingStatus").className = `status-pill ${conflicts.length ? "health-error" : "health-ok"}`;
+  $("#routingRuntimeNote").textContent = routingSummary(routing);
+}
+
 async function refreshAll() {
   if (state.refreshingAll) return;
   state.refreshingAll = true;
@@ -1407,6 +1460,7 @@ async function refreshAll() {
   try {
     state.overview = await api("/api/overview");
     state.backupSchedule = state.overview.backup_schedule || state.backupSchedule;
+    state.routing = state.overview.routing || state.routing;
     state.warp = state.overview.warp || state.warp;
     updateLanguageFromOverview(state.overview);
     state.users = await api("/api/users");
@@ -1427,6 +1481,7 @@ async function refreshAll() {
     }
     renderOverview();
     renderUsers();
+    renderRoutingSettings();
     renderWarpSettings();
     if (state.page === "traffic") {
       await refreshStats();
@@ -1577,6 +1632,45 @@ async function setUserMaxUniqueIps(name, value) {
     renderUsers();
     addEvent(t("ipLimitSaved"), `${name}: ${data.max_unique_ips}`);
     toast(t("changesApplyInBackground"));
+    setTimeout(() => refreshAll().catch((err) => toast(err.message)), 1400);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function checkRoutingPort() {
+  const port = Number.parseInt($("#routingPort").value, 10);
+  if (!Number.isFinite(port) || port < 1 || port > 65535) return;
+  try {
+    const data = await api(`/api/routing?port=${encodeURIComponent(port)}`);
+    renderRoutingSettings(data);
+  } catch (err) {
+    $("#routingStatus").textContent = t("routingBusy");
+    $("#routingStatus").className = "status-pill health-error";
+    $("#routingRuntimeNote").textContent = err.message;
+  }
+}
+
+async function saveRoutingSettings(eventObj) {
+  eventObj.preventDefault();
+  const form = eventObj.currentTarget;
+  const controls = Array.from(form.querySelectorAll("input, button"));
+  controls.forEach((control) => { control.disabled = true; });
+  try {
+    const payload = {
+      port: Number.parseInt($("#routingPort").value, 10),
+      mask_host: $("#routingMaskHost").value.trim(),
+    };
+    const data = await api("/api/routing", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.routing = data;
+    renderRoutingSettings();
+    addEvent(t("routingSaved"), `${data.port} / ${data.mask_host}`);
+    toast(t("routingSaved"));
     setTimeout(() => refreshAll().catch((err) => toast(err.message)), 1400);
   } catch (err) {
     toast(err.message);
@@ -1853,6 +1947,8 @@ $("#loadLogsBtn").addEventListener("click", loadLogs);
 $("#repairStatsBtn").addEventListener("click", repairStats);
 $("#collectStatsBtn").addEventListener("click", collectStats);
 $("#authSettingsForm").addEventListener("submit", updateAuthSettings);
+$("#routingSettingsForm").addEventListener("submit", saveRoutingSettings);
+$("#routingPort").addEventListener("change", checkRoutingPort);
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
 $("#warpUserSelect").addEventListener("change", renderWarpSettings);
