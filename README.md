@@ -4,6 +4,17 @@
 
 > Поддержать проект: [Boosty](https://boosty.to/andrey27/donate) · [Ozon Bank](https://finance.ozon.ru/apps/sbp/ozonbankpay/019dc200-2a5d-7931-a619-782d285f6798) · [Telegram](https://t.me/PCAdministration) · [GitHub](https://github.com/andrey271192/PCAtelegram_web)
 
+![PCAtelegram_web admin panel](docs/images/panel-preview.png)
+
+## Что умеет
+
+- Web-admin для управления MTProxy без ручного редактирования TOML.
+- Создание, отключение, удаление ключей и лимит IP на пользователя.
+- Выбор публичного порта и сайта маскировки FakeTLS.
+- Автоустановка `telemt`, если прокси-ядро отсутствует при сохранении маршрута.
+- WARP / WARP+ настройки, backup/restore, статистика трафика.
+- Session cookie переживает restart web-admin; auto-refresh не сбрасывает поля во время ввода.
+
 ## Установка
 
 На сервере под `root`:
@@ -113,6 +124,113 @@ Per-client runtime routing в текущем telemt не включается а
 - После сохранения обновляются `/etc/telemt/config.toml`, `/opt/pcatelegram_web/config.json`, ссылки клиентов и перезапускается `telemt`.
 
 Один `telemt`-инстанс имеет один публичный порт и один сайт маскировки для всех клиентов. Разные порты или разные сайты маскировки на разных клиентов требуют отдельные `telemt` services/configs.
+
+## Ошибки и решения
+
+### Telegram пишет `соединение` и proxy не подключается
+
+Причины:
+
+- `telemt` не запущен.
+- Порт закрыт firewall/VPS provider.
+- В Telegram осталась старая ссылка со старым secret.
+
+Проверка:
+
+```bash
+systemctl is-active telemt
+ss -tulpn | grep -E ':(443|5443)\b'
+journalctl -u telemt --since "10 min ago" -n 80 --no-pager
+```
+
+Решение:
+
+- В web-admin открой `Keys`, скопируй свежую ссылку нужного пользователя и заново добавь proxy в Telegram.
+- Если `telemt` отсутствует, в web-admin сохрани `Port and mask site`: панель поставит `telemt`, создаст `main`, запустит сервис.
+- Если порт не слушает, перезапусти:
+
+```bash
+systemctl restart telemt
+systemctl status telemt --no-pager -l
+```
+
+### `unauthorized` при создании ключа
+
+Обычно это старая вкладка после restart web-admin.
+
+Решение:
+
+- Обнови страницу и войди снова.
+- Начиная с cache `admin26` session cookie переживает restart, а при настоящем `401` UI отправляет на login.
+
+Проверка:
+
+```bash
+systemctl is-active pcatelegram_web-admin.service
+journalctl -u pcatelegram_web-admin --since "10 min ago" -n 80 --no-pager
+```
+
+### Не меняется `Лимит IP`, поле скачет или откатывается
+
+Причина: auto-refresh перерисовал карточку пользователя во время ввода.
+
+Решение:
+
+- Начиная с cache `admin28` background refresh не трогает страницу, пока курсор находится в `input`, `select` или `textarea`.
+- Сделай hard refresh браузера после обновления панели: `Ctrl+Shift+R` / `Cmd+Shift+R`.
+
+Проверка через API:
+
+```bash
+curl -b cookies.txt -H 'Content-Type: application/json' \
+  -H 'X-PCAtelegram-Web-Admin: 1' \
+  -d '{"max_unique_ips":2}' \
+  http://SERVER:1984/api/users/main/max-ips
+```
+
+### Порт `443` занят
+
+Проверка:
+
+```bash
+ss -tulpn | grep ':443'
+```
+
+Если там `xray`, `3x-ui`, `nginx` или другой процесс, web-admin покажет конфликт и не даст сохранить `telemt` на этот порт. Выбери свободный порт, например `5443`, либо освободи `443` вручную.
+
+### GitHub пишет `Repository not found`
+
+Возможные причины:
+
+- private repo удалён;
+- GitHub token больше не имеет доступа;
+- `GITHUB_TOKEN` не передан при установке private repo.
+
+Проверка:
+
+```bash
+git ls-remote origin HEAD
+```
+
+Для private install:
+
+```bash
+curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+  https://raw.githubusercontent.com/andrey271192/PCAtelegram_web/main/bootstrap.sh | \
+  GITHUB_TOKEN="$GITHUB_TOKEN" bash
+```
+
+### Web-admin не открывается на `:1984`
+
+Проверка:
+
+```bash
+systemctl is-active pcatelegram_web-admin.service
+ss -tulpn | grep ':1984'
+journalctl -u pcatelegram_web-admin --since "10 min ago" -n 80 --no-pager
+```
+
+Если сервис работает, но порт не открывается снаружи, проверь firewall/VPS security group.
 
 ## Проверки
 
