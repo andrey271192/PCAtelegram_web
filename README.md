@@ -130,6 +130,10 @@ Per-client runtime routing в текущем telemt не включается а
 
 В web-admin Settings есть блок `Mieru`:
 
+![Mieru settings](docs/images/mieru-settings.png)
+
+![Mieru subscription QR](docs/images/mieru-qr.png)
+
 - `Mieru port` — отдельный публичный порт `mita`, по умолчанию `2999`. Диапазон Mieru: `1025-65535`.
 - `Transport` — `TCP` или `UDP`.
 - `User` / `Password` — учётка Mieru. Если пароль пустой, web-admin генерирует новый.
@@ -137,6 +141,7 @@ Per-client runtime routing в текущем telemt не включается а
 - `Client JSON` — готовый конфиг для официального `mieru` client.
 - `mihomo YAML` — proxy block для клиентов с поддержкой `type: mieru`.
 - `mihomo subscription URL` — ссылка вида `http://SERVER:1984/sub/mieru/<token>.yaml`. Её нужно вставлять в iOS Clash/mihomo apps как subscription/profile URL.
+- `QR subscription` — QR-код этого subscription URL для импорта с телефона.
 - `Clash import URL` — deep link `clash://install-config?...` для клиентов, которые умеют открывать Clash import links.
 
 Не вставляйте сырой `mihomo YAML` в поле URL: iOS clients ожидают ссылку, иначе будет ошибка `No host specified in URI proxies:`. YAML нужен только для ручной вставки в config file.

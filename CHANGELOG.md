@@ -9,6 +9,7 @@
 - Added README docs for custom domain and public site flow.
 - Added Mieru / mita management in web-admin with install, port validation, client JSON, mihomo YAML, logs, services, and backup support.
 - Added tokenized Mieru mihomo subscription URL and Clash import URL for iOS clients.
+- Added QR code for Mieru subscription URL.
 
 ## 2.5.0
 

@@ -151,7 +151,9 @@ const i18n = {
     mieruSubscriptionUrl: "mihomo subscription URL",
     mieruClashImportUrl: "Clash import URL",
     copySubscriptionUrl: "Copy subscription URL",
+    showSubscriptionQr: "QR subscription",
     copyYaml: "Copy YAML",
+    mieruQrTitle: "Scan Mieru subscription",
     mieruNote: "Mieru server uses mita. Paste subscription URL into iOS Clash/mihomo apps, not raw YAML. Client JSON is for mieru app.",
     copyConfig: "Copy config",
     savedKey: "saved key",
@@ -444,7 +446,9 @@ const i18n = {
     mieruSubscriptionUrl: "URL подписки mihomo",
     mieruClashImportUrl: "URL импорта Clash",
     copySubscriptionUrl: "Копировать URL подписки",
+    showSubscriptionQr: "QR подписки",
     copyYaml: "Копировать YAML",
+    mieruQrTitle: "Сканирование Mieru подписки",
     mieruNote: "Mieru server работает через mita. В iOS Clash/mihomo вставляйте URL подписки, не сырой YAML. Client JSON для mieru app.",
     copyConfig: "Копировать конфиг",
     savedKey: "ключ сохранён",
@@ -2178,6 +2182,26 @@ function showUserQr(name) {
   $("#qrModal").hidden = false;
 }
 
+function showMieruQr() {
+  const cfg = state.mieru || state.overview?.mieru || {};
+  const link = cfg.subscription_url || $("#mieruSubscriptionUrl")?.value || "";
+  if (!link) {
+    toast(t("qrUnavailable"));
+    return;
+  }
+  state.qrLink = link;
+  $("#qrTitle").textContent = t("mieruQrTitle");
+  $("#qrMeta").textContent = link;
+  const img = $("#qrImage");
+  img.alt = "Mieru subscription QR";
+  img.onerror = () => {
+    img.removeAttribute("src");
+    toast(t("qrUnavailable"));
+  };
+  img.src = `/api/mieru/qr?ts=${Date.now()}`;
+  $("#qrModal").hidden = false;
+}
+
 async function loadLogs() {
   const service = $("#logService").value;
   const btn = $("#loadLogsBtn");
@@ -2370,6 +2394,7 @@ $("#mieruStartBtn").addEventListener("click", () => controlMieru("start"));
 $("#mieruRestartBtn").addEventListener("click", () => controlMieru("restart"));
 $("#mieruStopBtn").addEventListener("click", () => controlMieru("stop"));
 $("#mieruCopyUrlBtn").addEventListener("click", () => copyText($("#mieruSubscriptionUrl").value || ""));
+$("#mieruQrBtn").addEventListener("click", showMieruQr);
 $("#mieruCopyYamlBtn").addEventListener("click", () => copyText($("#mieruMihomoYaml").value || ""));
 $("#siteMaskForm").addEventListener("submit", saveSiteMask);
 $("#siteMaskRemoveBtn").addEventListener("click", removeSiteMask);

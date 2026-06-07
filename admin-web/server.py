@@ -2432,16 +2432,31 @@ def launch_restore_backup(name: str, password: str = "") -> dict[str, Any]:
     return {"name": backup_path.name, "started": True, "log": str(BACKUP_RESTORE_LOG)}
 
 
+def qr_png_for_text(value: str) -> bytes:
+    code, image, error = run_bytes(["qrencode", "-t", "PNG", "-s", "8", "-m", "2", "-o", "-", value], timeout=8)
+    if code != 0 or not image:
+        raise RuntimeError(error.strip() or "qrencode is not installed")
+    return image
+
+
 def user_qr_png(name: str) -> tuple[bytes, str]:
     users = read_user_records()
     record = users.get(name)
     if not record:
         raise FileNotFoundError("user not found")
     link = proxy_link(str(record.get("secret", "")))
-    code, image, error = run_bytes(["qrencode", "-t", "PNG", "-s", "8", "-m", "2", "-o", "-", link], timeout=8)
-    if code != 0 or not image:
-        raise RuntimeError(error.strip() or "qrencode is not installed")
-    return image, link
+    return qr_png_for_text(link), link
+
+
+def mieru_subscription_qr_png() -> tuple[bytes, str]:
+    cfg = read_mieru_config()
+    if not cfg.get("password"):
+        raise FileNotFoundError("Mieru is not configured")
+    cfg, _ = ensure_mieru_subscription_token(cfg)
+    link = mieru_subscription_url(cfg)
+    if not link:
+        raise FileNotFoundError("Mieru subscription URL is not configured")
+    return qr_png_for_text(link), link
 
 
 def read_log_payload(service: str) -> dict[str, Any]:
@@ -2713,6 +2728,23 @@ class AdminHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "data": public_warp_config()})
         elif path == "/api/mieru":
             self.send_json({"ok": True, "data": public_mieru_config()})
+        elif path == "/api/mieru/qr":
+            try:
+                png, link = mieru_subscription_qr_png()
+            except FileNotFoundError:
+                self.send_error_json(404, "Mieru subscription is not configured")
+                return
+            except Exception as exc:
+                self.send_error_json(503, str(exc))
+                return
+            self.send_response(200)
+            self.send_security_headers()
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Subscription-Link", urllib.parse.quote(link, safe=""))
+            self.send_header("Content-Length", str(len(png)))
+            self.end_headers()
+            self.wfile.write(png)
         elif path == "/api/users":
             users = read_user_records()
             latest = latest_user_stats()
