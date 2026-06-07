@@ -374,6 +374,7 @@
               <div class="inline-form">
                 <select id="logService">
                   <option value="telemt">telemt</option>
+                  <option value="mita">mieru / mita</option>
                   <option value="nginx">nginx</option>
                   <option value="pcatelegram_web-bot">bot</option>
                   <option value="pcatelegram_web-stats">stats</option>
@@ -468,6 +469,53 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
+                  <p class="eyebrow" data-i18n="mieruEyebrow">Protocol</p>
+                  <h2 data-i18n="mieruTitle">Mieru</h2>
+                </div>
+                <span id="mieruStatus" class="status-pill">--</span>
+              </div>
+              <form id="mieruSettingsForm" class="settings-form">
+                <label>
+                  <span data-i18n="mieruPort">Mieru port</span>
+                  <input name="port" id="mieruPort" type="number" min="1025" max="65535" step="1" inputmode="numeric" placeholder="2999">
+                </label>
+                <label>
+                  <span data-i18n="mieruProtocol">Transport</span>
+                  <select name="protocol" id="mieruProtocol">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="mieruUser">User</span>
+                  <input name="user" id="mieruUser" autocomplete="off" spellcheck="false" placeholder="main">
+                </label>
+                <label>
+                  <span data-i18n="mieruPassword">Password</span>
+                  <input name="password" id="mieruPassword" autocomplete="off" spellcheck="false" placeholder="auto">
+                </label>
+                <p id="mieruRuntimeNote" class="modal-note"></p>
+                <div class="inline-form">
+                  <button type="submit" data-i18n="mieruInstall">Install / save Mieru</button>
+                  <button id="mieruStartBtn" class="soft" type="button" data-i18n="mieruStart">Start</button>
+                  <button id="mieruRestartBtn" class="soft" type="button" data-i18n="restart">Restart</button>
+                  <button id="mieruStopBtn" class="danger" type="button" data-i18n="mieruStop">Stop</button>
+                </div>
+                <label>
+                  <span data-i18n="mieruClientConfig">Client JSON</span>
+                  <textarea id="mieruClientConfig" rows="8" readonly spellcheck="false"></textarea>
+                </label>
+                <label>
+                  <span data-i18n="mieruMihomoYaml">mihomo YAML</span>
+                  <textarea id="mieruMihomoYaml" rows="8" readonly spellcheck="false"></textarea>
+                </label>
+                <button id="mieruCopyBtn" class="soft" type="button" data-i18n="copyConfig">Copy config</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
                   <p class="eyebrow" data-i18n="configEyebrow">Config</p>
                   <h2 data-i18n="configTitle">Installation state</h2>
                 </div>
@@ -508,6 +556,6 @@
       <button id="qrCopyBtn" type="button" class="soft" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
-  <script src="/app.js?v=2.5.0-admin29" type="module"></script>
+  <script src="/app.js?v=2.5.0-admin30" type="module"></script>
 </body>
 </html>

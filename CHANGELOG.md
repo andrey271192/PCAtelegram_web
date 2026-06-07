@@ -7,6 +7,7 @@
 - Stopped putting web-admin password into systemd environment; admin now reads root-only auth file.
 - Added public site manager for port 80 with install, remove, and custom HTML upload.
 - Added README docs for custom domain and public site flow.
+- Added Mieru / mita management in web-admin with install, port validation, client JSON, mihomo YAML, logs, services, and backup support.
 
 ## 2.5.0
 

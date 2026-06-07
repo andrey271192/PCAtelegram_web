@@ -71,6 +71,8 @@ ssh root@SERVER 'chmod +x /opt/pcatelegram_web/install.sh /opt/pcatelegram_web/i
 | `PCATELEGRAM_WEB_ADMIN_USER` | `admin` | Basic Auth login |
 | `PCATELEGRAM_WEB_ADMIN_PASSWORD` | `admin` | web-admin password |
 | `PCATELEGRAM_WEB_WARP_CONFIG` | `/opt/pcatelegram_web/warp.json` | WARP / WARP+ settings |
+| `PCATELEGRAM_WEB_MIERU_CONFIG` | `/opt/pcatelegram_web/mieru.json` | Mieru server settings |
+| `PCATELEGRAM_WEB_MIERU_SERVER_CONFIG` | `/opt/pcatelegram_web/mieru_server_config.json` | JSON applied by `mita apply config` |
 | `PCATELEGRAM_WEB_SITE_ROOT` | `/var/www/pcatelegram_web-site` | root публичного HTML-сайта на 80 |
 | `PCATELEGRAM_WEB_NGINX_MASK_CONF` | `/etc/nginx/sites-available/pcatelegram_web-mask` | nginx config сайта на 80 |
 
@@ -123,6 +125,19 @@ WARP+ key не отдается в API целиком: web показывает 
 Для real global WARP web-admin использует официальный Cloudflare Linux repo: добавляет GPG key, repo `pkg.cloudflareclient.com`, ставит пакет `cloudflare-warp`, затем выполняет регистрацию `warp-cli registration new`, WARP+ key `warp-cli registration license <KEY>`, подключение `warp-cli connect`.
 
 Per-client runtime routing в текущем telemt не включается автоматически: публичные параметры telemt дают users/limits/quotas/ad tags, но не документируют привязку upstream к конкретному user. Для настоящего WARP только одному клиенту нужен отдельный telemt route/service или upstream-схема.
+
+## Mieru
+
+В web-admin Settings есть блок `Mieru`:
+
+- `Mieru port` — отдельный публичный порт `mita`, по умолчанию `2999`. Диапазон Mieru: `1025-65535`.
+- `Transport` — `TCP` или `UDP`.
+- `User` / `Password` — учётка Mieru. Если пароль пустой, web-admin генерирует новый.
+- `Install / save Mieru` — если `mita` ещё нет, web-admin скачивает свежий пакет `mita` из GitHub release `enfein/mieru`, ставит его, применяет JSON через `mita apply config`, затем запускает `mita start`.
+- `Client JSON` — готовый конфиг для официального `mieru` client.
+- `mihomo YAML` — proxy block для клиентов с поддержкой `type: mieru`.
+
+Mieru не меняет `telemt`, nginx, WARP и сайт на 80. Перед сохранением web-admin проверяет выбранный порт через `ss`; чужой listener блокирует сохранение. Файлы `mieru.json` и `mieru_server_config.json` хранятся с правами `0600` и входят в backup.
 
 ## Порт и маскировка
 

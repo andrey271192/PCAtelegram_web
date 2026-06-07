@@ -48,6 +48,8 @@ SHARED_443_CONFIG = Path(os.getenv("PCATELEGRAM_WEB_SHARED_443", "/opt/pcatelegr
 BACKUP_SCHEDULE_FILE = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_SCHEDULE", "/opt/pcatelegram_web/backup_schedule.json"))
 BACKUP_RESTORE_LOG = Path(os.getenv("PCATELEGRAM_WEB_BACKUP_RESTORE_LOG", "/var/log/pcatelegram_web-restore.log"))
 WARP_CONFIG_FILE = Path(os.getenv("PCATELEGRAM_WEB_WARP_CONFIG", "/opt/pcatelegram_web/warp.json"))
+MIERU_CONFIG_FILE = Path(os.getenv("PCATELEGRAM_WEB_MIERU_CONFIG", "/opt/pcatelegram_web/mieru.json"))
+MIERU_SERVER_CONFIG_FILE = Path(os.getenv("PCATELEGRAM_WEB_MIERU_SERVER_CONFIG", "/opt/pcatelegram_web/mieru_server_config.json"))
 WEBSITE_ROOT = Path(os.getenv("PCATELEGRAM_WEB_SITE_ROOT", "/var/www/pcatelegram_web-site"))
 NGINX_MASK_CONF = Path(os.getenv("PCATELEGRAM_WEB_NGINX_MASK_CONF", "/etc/nginx/sites-available/pcatelegram_web-mask"))
 NGINX_MASK_LINK = Path(os.getenv("PCATELEGRAM_WEB_NGINX_MASK_LINK", "/etc/nginx/sites-enabled/pcatelegram_web-mask"))
@@ -751,6 +753,328 @@ def apply_warp_runtime(cfg: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def normalize_mieru_port(value: Any) -> int:
+    port = normalize_port(value)
+    if port < 1025:
+        raise ValueError("Mieru port must be between 1025 and 65535")
+    return port
+
+
+def normalize_mieru_protocol(value: Any) -> str:
+    proto = str(value or "TCP").strip().upper()
+    if proto not in {"TCP", "UDP"}:
+        raise ValueError("Mieru protocol must be TCP or UDP")
+    return proto
+
+
+def read_mieru_config() -> dict[str, Any]:
+    raw = load_json(MIERU_CONFIG_FILE, {}) or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    user = str(raw.get("user") or "main").strip()
+    if not USER_RE.match(user):
+        user = "main"
+    try:
+        port = normalize_mieru_port(raw.get("port") or 2999)
+    except ValueError:
+        port = 2999
+    try:
+        protocol = normalize_mieru_protocol(raw.get("protocol") or "TCP")
+    except ValueError:
+        protocol = "TCP"
+    return {
+        "version": 1,
+        "enabled": bool(raw.get("enabled")),
+        "port": port,
+        "protocol": protocol,
+        "user": user,
+        "password": str(raw.get("password") or "").strip(),
+        "updated_at": str(raw.get("updated_at") or ""),
+    }
+
+
+def write_mieru_config(config: dict[str, Any]) -> None:
+    cfg = dict(config)
+    cfg["version"] = 1
+    cfg["updated_at"] = utc_now()
+    save_json(MIERU_CONFIG_FILE, cfg, mode=0o600)
+
+
+def mieru_installed() -> bool:
+    return bool(shutil.which("mita")) or service_status("mita") != "not_installed"
+
+
+def mieru_status_text() -> str:
+    mita = shutil.which("mita")
+    if not mita:
+        return "mita not installed"
+    code, out, err = run([mita, "status"], timeout=8)
+    text = (out or err).strip()
+    return text or f"mita status exit {code}"
+
+
+def mieru_port_conflicts(port: int, protocol: str) -> list[dict[str, Any]]:
+    listeners, _ = collect_port_listeners(port)
+    proto = protocol.upper()
+    conflicts = []
+    for item in listeners:
+        if str(item.get("proto") or "").upper() != proto:
+            continue
+        process = str(item.get("process") or "").lower()
+        if "mita" in process or "mieru" in process:
+            continue
+        conflicts.append(item)
+    return conflicts
+
+
+def mieru_server_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "portBindings": [
+            {
+                "port": int(cfg["port"]),
+                "protocol": cfg["protocol"],
+            }
+        ],
+        "users": [
+            {
+                "name": cfg["user"],
+                "password": cfg["password"],
+            }
+        ],
+        "loggingLevel": "INFO",
+        "mtu": 1400,
+    }
+
+
+def mieru_client_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    host = public_host_for_notes()
+    ip_address = host if re.match(r"^[0-9a-fA-F:.]+$", host) else ""
+    domain_name = "" if ip_address else host
+    return {
+        "profiles": [
+            {
+                "profileName": "PCAtelegram_web",
+                "user": {
+                    "name": cfg["user"],
+                    "password": cfg["password"],
+                },
+                "servers": [
+                    {
+                        "ipAddress": ip_address,
+                        "domainName": domain_name,
+                        "portBindings": [
+                            {
+                                "port": int(cfg["port"]),
+                                "protocol": cfg["protocol"],
+                            }
+                        ],
+                    }
+                ],
+                "mtu": 1400,
+                "multiplexing": {
+                    "level": "MULTIPLEXING_LOW",
+                },
+            }
+        ],
+        "activeProfile": "PCAtelegram_web",
+    }
+
+
+def mieru_mihomo_proxy(cfg: dict[str, Any]) -> str:
+    host = public_host_for_notes()
+    return "\n".join([
+        "proxies:",
+        "  - name: PCAtelegram_web Mieru",
+        "    type: mieru",
+        f"    server: {host}",
+        f"    port: {int(cfg['port'])}",
+        f"    transport: {cfg['protocol']}",
+        f"    username: {cfg['user']}",
+        f"    password: {cfg['password']}",
+        "    multiplexing: MULTIPLEXING_LOW",
+        "",
+    ])
+
+
+def public_mieru_config() -> dict[str, Any]:
+    cfg = read_mieru_config()
+    listeners, errors = collect_port_listeners(cfg["port"])
+    conflicts = mieru_port_conflicts(cfg["port"], cfg["protocol"])
+    status_text = mieru_status_text()
+    installed = mieru_installed()
+    running = installed and ("RUNNING" in status_text.upper() or any(
+        str(item.get("proto") or "").upper() == cfg["protocol"]
+        and ("mita" in str(item.get("process") or "").lower() or "mieru" in str(item.get("process") or "").lower())
+        for item in listeners
+    ))
+    return {
+        "enabled": cfg["enabled"],
+        "installed": installed,
+        "running": running,
+        "service": service_status("mita"),
+        "status_text": status_text,
+        "port": cfg["port"],
+        "protocol": cfg["protocol"],
+        "user": cfg["user"],
+        "password": cfg["password"],
+        "password_mask": mask_secret(cfg["password"]),
+        "updated_at": cfg["updated_at"],
+        "listeners": listeners,
+        "conflicts": conflicts,
+        "ok": not errors,
+        "error": "; ".join(errors[:2]),
+        "client_config": mieru_client_config(cfg) if cfg["password"] else {},
+        "mihomo_yaml": mieru_mihomo_proxy(cfg) if cfg["password"] else "",
+    }
+
+
+def latest_mita_asset_url() -> tuple[str, str]:
+    req = urllib.request.Request(
+        "https://api.github.com/repos/enfein/mieru/releases/latest",
+        headers={"User-Agent": "PCAtelegram_web-admin"},
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        release = json.loads(resp.read(1024 * 1024).decode("utf-8"))
+    assets = release.get("assets") if isinstance(release, dict) else []
+    if not isinstance(assets, list):
+        raise RuntimeError("invalid Mieru release metadata")
+    machine = os.uname().machine.lower()
+    arch_aliases = ["amd64", "x86_64"] if machine in {"x86_64", "amd64"} else ["arm64", "aarch64"] if machine in {"aarch64", "arm64"} else [machine]
+    if shutil.which("apt-get") or shutil.which("dpkg"):
+        extensions = [".deb"]
+    elif shutil.which("dnf") or shutil.which("yum") or shutil.which("rpm"):
+        extensions = [".rpm"]
+    else:
+        raise RuntimeError("supported package manager not found")
+    for asset in assets:
+        name = str(asset.get("name") or "").lower()
+        url = str(asset.get("browser_download_url") or "")
+        if not url or ".sha256" in name:
+            continue
+        if not any(name.endswith(ext) for ext in extensions):
+            continue
+        if "mita" not in name:
+            continue
+        if any(alias in name for alias in arch_aliases):
+            return url, name
+    raise RuntimeError(f"mita package for {machine} not found in latest Mieru release")
+
+
+def download_file(url: str, target: Path) -> None:
+    req = urllib.request.Request(url, headers={"User-Agent": "PCAtelegram_web-admin"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        target.write_bytes(resp.read())
+
+
+def install_mita_package() -> dict[str, Any]:
+    result: dict[str, Any] = {"attempted": False, "installed": mieru_installed(), "asset": "", "warnings": []}
+    if result["installed"] and shutil.which("mita"):
+        return result
+    if os.geteuid() != 0:
+        result["warnings"].append("root required to install mita")
+        return result
+    url, name = latest_mita_asset_url()
+    target = Path("/tmp") / name
+    download_file(url, target)
+    result.update({"attempted": True, "asset": name})
+    if name.endswith(".deb"):
+        run(["apt-get", "update"], timeout=180)
+        code, _, err = run(["dpkg", "-i", str(target)], timeout=120)
+        if code != 0:
+            run(["apt-get", "install", "-f", "-y"], timeout=240)
+    elif name.endswith(".rpm"):
+        rpm = shutil.which("rpm")
+        if not rpm:
+            raise RuntimeError("rpm not found")
+        code, _, err = run([rpm, "-Uvh", "--force", str(target)], timeout=180)
+        if code != 0:
+            raise RuntimeError(err.strip() or "rpm install failed")
+    run(["systemctl", "enable", "--now", "mita"], timeout=30)
+    result["installed"] = bool(shutil.which("mita")) or service_status("mita") != "not_installed"
+    if not result["installed"]:
+        result["warnings"].append("mita still not available after install")
+    return result
+
+
+def apply_mieru_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    server_cfg = mieru_server_config(cfg)
+    MIERU_SERVER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MIERU_SERVER_CONFIG_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(server_cfg, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(MIERU_SERVER_CONFIG_FILE)
+    mita = shutil.which("mita")
+    if not mita:
+        raise RuntimeError("mita is not installed")
+    code, out, err = run([mita, "apply", "config", str(MIERU_SERVER_CONFIG_FILE)], timeout=30)
+    if code != 0:
+        raise RuntimeError(err.strip() or out.strip() or "mita apply config failed")
+    run([mita, "stop"], timeout=20)
+    code, out, err = run([mita, "start"], timeout=30)
+    if code != 0:
+        raise RuntimeError(err.strip() or out.strip() or "mita start failed")
+    return {"applied": True, "status": mieru_status_text()}
+
+
+def save_mieru_settings(body: dict[str, Any]) -> dict[str, Any]:
+    current = read_mieru_config()
+    port = normalize_mieru_port(body.get("port") or current["port"])
+    protocol = normalize_mieru_protocol(body.get("protocol") or current["protocol"])
+    user = str(body.get("user") or current["user"] or "main").strip()
+    if not USER_RE.match(user):
+        raise ValueError("invalid Mieru user")
+    password = str(body.get("password") or "").strip() or current.get("password") or secrets.token_urlsafe(18)
+    conflicts = mieru_port_conflicts(port, protocol)
+    if conflicts:
+        names = ", ".join(f"{item.get('process')} {item.get('address')}" for item in conflicts[:3])
+        raise RuntimeError(f"Mieru port is busy: {names}")
+    install_result = install_mita_package()
+    if not install_result.get("installed"):
+        raise RuntimeError("; ".join(install_result.get("warnings") or ["mita install failed"]))
+    cfg = {
+        "enabled": True,
+        "port": port,
+        "protocol": protocol,
+        "user": user,
+        "password": password,
+    }
+    apply_result = apply_mieru_config(cfg)
+    write_mieru_config(cfg)
+    payload = public_mieru_config()
+    payload["install"] = install_result
+    payload["apply"] = apply_result
+    return payload
+
+
+def control_mieru(action: str) -> dict[str, Any]:
+    if not mieru_installed():
+        raise RuntimeError("mita is not installed")
+    mita = shutil.which("mita")
+    if not mita:
+        raise RuntimeError("mita command not found")
+    cfg = read_mieru_config()
+    if action == "stop":
+        code, out, err = run([mita, "stop"], timeout=20)
+        cfg["enabled"] = False
+        write_mieru_config(cfg)
+    elif action == "start":
+        if not cfg.get("password"):
+            raise RuntimeError("Mieru config is empty")
+        code, out, err = run([mita, "start"], timeout=30)
+        cfg["enabled"] = code == 0
+        write_mieru_config(cfg)
+    elif action == "restart":
+        if cfg.get("password"):
+            apply_mieru_config(cfg)
+            return public_mieru_config()
+        code, out, err = run(["systemctl", "restart", "mita"], timeout=30)
+    else:
+        raise ValueError("unsupported Mieru action")
+    if code != 0:
+        raise RuntimeError(err.strip() or out.strip() or f"mita {action} failed")
+    return public_mieru_config()
+
+
 def read_disabled_users() -> dict[str, str]:
     raw = load_json(DISABLED_USERS_FILE, {}) or {}
     if not isinstance(raw, dict):
@@ -982,6 +1306,8 @@ def _process_role(process: str) -> str:
     lowered = process.lower()
     if "telemt" in lowered or "mtproto" in lowered:
         return "mtproxy"
+    if "mita" in lowered or "mieru" in lowered:
+        return "mieru"
     if "nginx" in lowered or "apache" in lowered or "caddy" in lowered:
         return "site"
     if "xray" in lowered or "x-ui" in lowered or "3x-ui" in lowered or "xui" in lowered:
@@ -2082,7 +2408,7 @@ def user_qr_png(name: str) -> tuple[bytes, str]:
 
 
 def read_log_payload(service: str) -> dict[str, Any]:
-    allowed = {"telemt", "nginx", "pcatelegram_web-bot", "pcatelegram_web-stats", "pcatelegram_web-admin"}
+    allowed = {"telemt", "nginx", "mita", "pcatelegram_web-bot", "pcatelegram_web-stats", "pcatelegram_web-admin"}
     if service not in allowed:
         raise ValueError("unsupported service")
     code, stdout, stderr = run(["journalctl", "-u", service, "-n", "180", "--no-pager", "-o", "short-iso"], timeout=10)
@@ -2139,6 +2465,7 @@ def overview_payload() -> dict[str, Any]:
     summary = telemt_api("/v1/stats/summary")
     services = {
         "telemt": service_status("telemt"),
+        "mieru": service_status("mita"),
         "nginx": service_status("nginx"),
         "bot": service_status("pcatelegram_web-bot"),
         "stats": service_status("pcatelegram_web-stats"),
@@ -2163,6 +2490,7 @@ def overview_payload() -> dict[str, Any]:
         "backups": list_backups(),
         "backup_schedule": backup_schedule_status(),
         "warp": public_warp_config(),
+        "mieru": public_mieru_config(),
         "routing": routing_payload(),
     }
 
@@ -2326,6 +2654,8 @@ class AdminHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "data": routing_payload(port)})
         elif path == "/api/warp":
             self.send_json({"ok": True, "data": public_warp_config()})
+        elif path == "/api/mieru":
+            self.send_json({"ok": True, "data": public_mieru_config()})
         elif path == "/api/users":
             users = read_user_records()
             latest = latest_user_stats()
@@ -2678,11 +3008,28 @@ class AdminHandler(BaseHTTPRequestHandler):
                 self.send_error_json(500, f"failed to save WARP config: {exc}")
                 return
             self.send_json({"ok": True, "data": {"config": public_warp_config(), "apply": apply_result}})
+        elif path == "/api/mieru":
+            action = str(body.get("action") or "install").strip().lower()
+            try:
+                if action in {"install", "save"}:
+                    payload = save_mieru_settings(body)
+                else:
+                    payload = control_mieru(action)
+            except ValueError as exc:
+                self.send_error_json(400, str(exc))
+                return
+            except RuntimeError as exc:
+                self.send_error_json(409, str(exc))
+                return
+            except Exception as exc:
+                self.send_error_json(500, f"failed to manage Mieru: {exc}")
+                return
+            self.send_json({"ok": True, "data": payload})
         elif path == "/api/auth/logout":
             self.handle_logout()
         elif path.startswith("/api/services/") and path.endswith("/restart"):
             service = path[len("/api/services/"):-len("/restart")]
-            allowed = {"telemt", "nginx", "pcatelegram_web-bot", "pcatelegram_web-stats"}
+            allowed = {"telemt", "nginx", "mita", "pcatelegram_web-bot", "pcatelegram_web-stats"}
             if service not in allowed:
                 self.send_error_json(400, "unsupported service")
                 return

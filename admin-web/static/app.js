@@ -132,6 +132,24 @@ const i18n = {
     warpNotInstalled: "will install on save",
     warpPerUserNote: "One-client WARP profile is stored here. If warp-cli is missing, it will be installed on save. Runtime per-client routing needs a dedicated telemt route; global WARP applies to all clients.",
     warpAllNote: "Global WARP applies to all proxy traffic. If warp-cli is missing, it will be installed on save, then connected.",
+    mieruEyebrow: "Protocol",
+    mieruTitle: "Mieru",
+    mieruPort: "Mieru port",
+    mieruProtocol: "Transport",
+    mieruUser: "User",
+    mieruPassword: "Password",
+    mieruInstall: "Install / save Mieru",
+    mieruStart: "Start",
+    mieruStop: "Stop",
+    mieruInstalled: "Mieru installed",
+    mieruNotInstalled: "will install on save",
+    mieruRunning: "Mieru running",
+    mieruStopped: "Mieru stopped",
+    mieruSaved: "Mieru settings saved",
+    mieruClientConfig: "Client JSON",
+    mieruMihomoYaml: "mihomo YAML",
+    mieruNote: "Mieru server uses mita. Port must be free and in range 1025-65535. Client JSON is for mieru app; YAML is for clients with mieru support.",
+    copyConfig: "Copy config",
     savedKey: "saved key",
     siteMaskEyebrow: "Public site",
     siteMaskTitle: "Domain and mask site",
@@ -239,6 +257,7 @@ const i18n = {
     roleSite: "Website",
     roleXray: "Xray / 3x-ui",
     roleAmneziawg: "AmneziaWG",
+    roleMieru: "Mieru",
     roleOther: "Other",
     range15m: "15 min",
     range1h: "1 hour",
@@ -402,6 +421,24 @@ const i18n = {
     warpNotInstalled: "установится при сохранении",
     warpPerUserNote: "Профиль WARP для одного клиента сохраняется здесь. Если warp-cli нет, он установится при сохранении. Runtime-маршрут на одного клиента требует отдельный маршрут telemt; global WARP действует на всех клиентов.",
     warpAllNote: "Global WARP применится ко всему proxy-трафику. Если warp-cli нет, он установится при сохранении и затем подключится.",
+    mieruEyebrow: "Протокол",
+    mieruTitle: "Mieru",
+    mieruPort: "Порт Mieru",
+    mieruProtocol: "Транспорт",
+    mieruUser: "Пользователь",
+    mieruPassword: "Пароль",
+    mieruInstall: "Установить / сохранить Mieru",
+    mieruStart: "Запустить",
+    mieruStop: "Остановить",
+    mieruInstalled: "Mieru установлен",
+    mieruNotInstalled: "установится при сохранении",
+    mieruRunning: "Mieru работает",
+    mieruStopped: "Mieru остановлен",
+    mieruSaved: "Настройки Mieru сохранены",
+    mieruClientConfig: "Client JSON",
+    mieruMihomoYaml: "mihomo YAML",
+    mieruNote: "Mieru server работает через mita. Порт должен быть свободен и в диапазоне 1025-65535. Client JSON для mieru app; YAML для клиентов с поддержкой mieru.",
+    copyConfig: "Копировать конфиг",
     savedKey: "ключ сохранён",
     siteMaskEyebrow: "Публичный сайт",
     siteMaskTitle: "Домен и сайт маскировки",
@@ -509,6 +546,7 @@ const i18n = {
     roleSite: "Сайт",
     roleXray: "Xray / 3x-ui",
     roleAmneziawg: "AmneziaWG",
+    roleMieru: "Mieru",
     roleOther: "Другое",
     range15m: "15 мин",
     range1h: "1 час",
@@ -565,6 +603,7 @@ const state = {
   routingDirty: false,
   routingPreviewMap: null,
   warp: null,
+  mieru: null,
   siteMask: null,
   qrLink: "",
   pendingUsers: new Set(),
@@ -833,6 +872,7 @@ function healthLabel(health) {
 function renderServices(services = {}) {
   const items = [
     { key: "telemt", label: "telemt", api: "telemt" },
+    { key: "mieru", label: "mieru", api: "mita" },
     { key: "nginx", label: "nginx", api: "nginx" },
     { key: "bot", label: "bot", api: "pcatelegram_web-bot" },
     { key: "stats", label: "stats", api: "pcatelegram_web-stats" },
@@ -1422,6 +1462,52 @@ function renderWarpSettings() {
     : `${t("warpAllNote")}${statusLine ? ` ${statusLine}` : ""}`;
 }
 
+function mieruSummary(cfg = {}) {
+  const conflicts = cfg.conflicts || [];
+  if (conflicts.length) {
+    return `${t("routingBusy")}: ${conflicts.map((item) => `${item.process} ${item.address}`).join(", ")}`;
+  }
+  const listeners = cfg.listeners || [];
+  const listenerText = listeners.length
+    ? listeners.map((item) => `${item.process} ${item.address}`).join(", ")
+    : `${cfg.protocol || "TCP"} :${cfg.port || 2999}`;
+  const status = cfg.status_text ? ` ${cfg.status_text}` : "";
+  return `${listenerText}.${status} ${t("mieruNote")}`;
+}
+
+function renderMieruSettings(payload = null) {
+  const cfg = payload || state.mieru || state.overview?.mieru || {};
+  const portEl = $("#mieruPort");
+  const protocolEl = $("#mieruProtocol");
+  const userEl = $("#mieruUser");
+  const passwordEl = $("#mieruPassword");
+  const statusEl = $("#mieruStatus");
+  const noteEl = $("#mieruRuntimeNote");
+  const clientEl = $("#mieruClientConfig");
+  const yamlEl = $("#mieruMihomoYaml");
+  if (!portEl || !protocolEl || !userEl || !passwordEl || !statusEl || !noteEl) return;
+  if (document.activeElement !== portEl) portEl.value = cfg.port || 2999;
+  if (document.activeElement !== protocolEl) protocolEl.value = cfg.protocol || "TCP";
+  if (document.activeElement !== userEl) userEl.value = cfg.user || "main";
+  if (document.activeElement !== passwordEl) passwordEl.value = "";
+  passwordEl.placeholder = cfg.password_mask ? `${t("savedKey")}: ${cfg.password_mask}` : "auto";
+  const conflicts = cfg.conflicts || [];
+  statusEl.textContent = conflicts.length
+    ? t("routingBusy")
+    : (cfg.running ? t("mieruRunning") : (cfg.installed ? t("mieruStopped") : t("mieruNotInstalled")));
+  statusEl.className = `status-pill ${conflicts.length ? "health-error" : (cfg.running ? "health-ok" : "")}`;
+  noteEl.textContent = mieruSummary(cfg);
+  noteEl.classList.toggle("error", Boolean(conflicts.length));
+  if (clientEl && document.activeElement !== clientEl) {
+    clientEl.value = cfg.client_config && Object.keys(cfg.client_config).length
+      ? JSON.stringify(cfg.client_config, null, 2)
+      : "";
+  }
+  if (yamlEl && document.activeElement !== yamlEl) {
+    yamlEl.value = cfg.mihomo_yaml || "";
+  }
+}
+
 function siteMaskSummary(payload = {}) {
   const conflicts = payload.conflicts || [];
   if (conflicts.length) {
@@ -1612,6 +1698,7 @@ async function refreshAll(options = {}) {
     state.backupSchedule = state.overview.backup_schedule || state.backupSchedule;
     state.routing = state.overview.routing || state.routing;
     state.warp = state.overview.warp || state.warp;
+    state.mieru = state.overview.mieru || state.mieru;
     state.siteMask = state.overview.site_mask || state.siteMask;
     updateLanguageFromOverview(state.overview);
     state.users = await api("/api/users");
@@ -1638,6 +1725,7 @@ async function refreshAll(options = {}) {
     renderUsers();
     renderRoutingSettings();
     renderWarpSettings();
+    renderMieruSettings();
     renderSiteMaskSettings();
     if (state.page === "traffic") {
       await refreshStats();
@@ -1881,6 +1969,56 @@ async function saveWarpSettings(eventObj) {
     toast(err.message);
   } finally {
     controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function saveMieruSettings(eventObj) {
+  eventObj.preventDefault();
+  const form = eventObj.currentTarget;
+  const controls = Array.from(form.querySelectorAll("input, select, button"));
+  controls.forEach((control) => { control.disabled = true; });
+  try {
+    const payload = {
+      action: "install",
+      port: Number.parseInt($("#mieruPort").value, 10),
+      protocol: $("#mieruProtocol").value,
+      user: $("#mieruUser").value.trim(),
+      password: $("#mieruPassword").value.trim(),
+    };
+    const data = await api("/api/mieru", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.mieru = data;
+    $("#mieruPassword").value = "";
+    renderMieruSettings(data);
+    addEvent(t("mieruSaved"), `${data.protocol}:${data.port}`);
+    toast(t("mieruSaved"));
+    await refreshAll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
+async function controlMieru(action) {
+  const buttons = [$("#mieruStartBtn"), $("#mieruRestartBtn"), $("#mieruStopBtn")].filter(Boolean);
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const data = await api("/api/mieru", {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    });
+    state.mieru = data;
+    renderMieruSettings(data);
+    addEvent(t("serviceRestarted"), `mieru ${action}`);
+    toast(action === "stop" ? t("mieruStopped") : t("mieruRunning"));
+    await refreshAll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 
@@ -2211,6 +2349,11 @@ $("#routingPort").addEventListener("change", (eventObj) => checkRoutingPort(even
 $("#warpSettingsForm").addEventListener("submit", saveWarpSettings);
 $("#warpScope").addEventListener("change", renderWarpSettings);
 $("#warpUserSelect").addEventListener("change", renderWarpSettings);
+$("#mieruSettingsForm").addEventListener("submit", saveMieruSettings);
+$("#mieruStartBtn").addEventListener("click", () => controlMieru("start"));
+$("#mieruRestartBtn").addEventListener("click", () => controlMieru("restart"));
+$("#mieruStopBtn").addEventListener("click", () => controlMieru("stop"));
+$("#mieruCopyBtn").addEventListener("click", () => copyText($("#mieruClientConfig").value || $("#mieruMihomoYaml").value || ""));
 $("#siteMaskForm").addEventListener("submit", saveSiteMask);
 $("#siteMaskRemoveBtn").addEventListener("click", removeSiteMask);
 $("#siteMaskUploadBtn").addEventListener("click", uploadSiteMaskHtml);
