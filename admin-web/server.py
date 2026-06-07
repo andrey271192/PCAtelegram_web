@@ -789,6 +789,7 @@ def read_mieru_config() -> dict[str, Any]:
         "protocol": protocol,
         "user": user,
         "password": str(raw.get("password") or "").strip(),
+        "subscription_token": str(raw.get("subscription_token") or "").strip(),
         "updated_at": str(raw.get("updated_at") or ""),
     }
 
@@ -896,8 +897,41 @@ def mieru_mihomo_proxy(cfg: dict[str, Any]) -> str:
     ])
 
 
+def ensure_mieru_subscription_token(cfg: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    token = str(cfg.get("subscription_token") or "").strip()
+    if len(token) >= 24 and re.match(r"^[A-Za-z0-9_-]+$", token):
+        return cfg, False
+    next_cfg = dict(cfg)
+    next_cfg["subscription_token"] = secrets.token_urlsafe(24)
+    write_mieru_config(next_cfg)
+    return read_mieru_config(), True
+
+
+def admin_public_base_url() -> str:
+    host = public_host_for_notes()
+    scheme = "http"
+    return f"{scheme}://{host}:{PORT}"
+
+
+def mieru_subscription_path(cfg: dict[str, Any]) -> str:
+    token = str(cfg.get("subscription_token") or "").strip()
+    return f"/sub/mieru/{urllib.parse.quote(token, safe='')}.yaml" if token else ""
+
+
+def mieru_subscription_url(cfg: dict[str, Any]) -> str:
+    path = mieru_subscription_path(cfg)
+    return f"{admin_public_base_url()}{path}" if path else ""
+
+
+def mieru_clash_import_url(cfg: dict[str, Any]) -> str:
+    url = mieru_subscription_url(cfg)
+    return f"clash://install-config?url={urllib.parse.quote(url, safe='')}" if url else ""
+
+
 def public_mieru_config() -> dict[str, Any]:
     cfg = read_mieru_config()
+    if cfg["password"]:
+        cfg, _ = ensure_mieru_subscription_token(cfg)
     listeners, errors = collect_port_listeners(cfg["port"])
     conflicts = mieru_port_conflicts(cfg["port"], cfg["protocol"])
     status_text = mieru_status_text()
@@ -925,6 +959,8 @@ def public_mieru_config() -> dict[str, Any]:
         "error": "; ".join(errors[:2]),
         "client_config": mieru_client_config(cfg) if cfg["password"] else {},
         "mihomo_yaml": mieru_mihomo_proxy(cfg) if cfg["password"] else "",
+        "subscription_url": mieru_subscription_url(cfg) if cfg["password"] else "",
+        "clash_import_url": mieru_clash_import_url(cfg) if cfg["password"] else "",
     }
 
 
@@ -1037,6 +1073,7 @@ def save_mieru_settings(body: dict[str, Any]) -> dict[str, Any]:
         "protocol": protocol,
         "user": user,
         "password": password,
+        "subscription_token": current.get("subscription_token") or secrets.token_urlsafe(24),
     }
     apply_result = apply_mieru_config(cfg)
     write_mieru_config(cfg)
@@ -2619,6 +2656,26 @@ class AdminHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_mieru_subscription(self, parsed: urllib.parse.ParseResult) -> None:
+        match = re.fullmatch(r"/sub/mieru/([A-Za-z0-9_-]+)\.yaml", parsed.path)
+        if not match:
+            self.send_error(404)
+            return
+        cfg = read_mieru_config()
+        token = str(cfg.get("subscription_token") or "")
+        if not token or not hmac.compare_digest(match.group(1), token) or not cfg.get("password"):
+            self.send_error(404)
+            return
+        body = mieru_mihomo_proxy(cfg).encode("utf-8")
+        self.send_response(200)
+        self.send_security_headers()
+        self.send_header("Content-Type", "text/yaml; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Disposition", 'inline; filename="pcatelegram_web_mieru.yaml"')
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def send_error_json(self, status: int, message: str) -> None:
         self.send_json({"ok": False, "error": message}, status)
 
@@ -3105,6 +3162,9 @@ class AdminHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path.startswith("/sub/mieru/"):
+            self.send_mieru_subscription(parsed)
+            return
         if not self.is_authorized():
             if parsed.path.startswith("/api/"):
                 self.send_error_json(401, "unauthorized")

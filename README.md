@@ -136,6 +136,10 @@ Per-client runtime routing в текущем telemt не включается а
 - `Install / save Mieru` — если `mita` ещё нет, web-admin скачивает свежий пакет `mita` из GitHub release `enfein/mieru`, ставит его, применяет JSON через `mita apply config`, затем запускает `mita start`.
 - `Client JSON` — готовый конфиг для официального `mieru` client.
 - `mihomo YAML` — proxy block для клиентов с поддержкой `type: mieru`.
+- `mihomo subscription URL` — ссылка вида `http://SERVER:1984/sub/mieru/<token>.yaml`. Её нужно вставлять в iOS Clash/mihomo apps как subscription/profile URL.
+- `Clash import URL` — deep link `clash://install-config?...` для клиентов, которые умеют открывать Clash import links.
+
+Не вставляйте сырой `mihomo YAML` в поле URL: iOS clients ожидают ссылку, иначе будет ошибка `No host specified in URI proxies:`. YAML нужен только для ручной вставки в config file.
 
 Mieru не меняет `telemt`, nginx, WARP и сайт на 80. Перед сохранением web-admin проверяет выбранный порт через `ss`; чужой listener блокирует сохранение. Файлы `mieru.json` и `mieru_server_config.json` хранятся с правами `0600` и входят в backup.
 

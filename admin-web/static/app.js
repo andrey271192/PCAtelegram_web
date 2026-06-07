@@ -148,7 +148,11 @@ const i18n = {
     mieruSaved: "Mieru settings saved",
     mieruClientConfig: "Client JSON",
     mieruMihomoYaml: "mihomo YAML",
-    mieruNote: "Mieru server uses mita. Port must be free and in range 1025-65535. Client JSON is for mieru app; YAML is for clients with mieru support.",
+    mieruSubscriptionUrl: "mihomo subscription URL",
+    mieruClashImportUrl: "Clash import URL",
+    copySubscriptionUrl: "Copy subscription URL",
+    copyYaml: "Copy YAML",
+    mieruNote: "Mieru server uses mita. Paste subscription URL into iOS Clash/mihomo apps, not raw YAML. Client JSON is for mieru app.",
     copyConfig: "Copy config",
     savedKey: "saved key",
     siteMaskEyebrow: "Public site",
@@ -437,7 +441,11 @@ const i18n = {
     mieruSaved: "Настройки Mieru сохранены",
     mieruClientConfig: "Client JSON",
     mieruMihomoYaml: "mihomo YAML",
-    mieruNote: "Mieru server работает через mita. Порт должен быть свободен и в диапазоне 1025-65535. Client JSON для mieru app; YAML для клиентов с поддержкой mieru.",
+    mieruSubscriptionUrl: "URL подписки mihomo",
+    mieruClashImportUrl: "URL импорта Clash",
+    copySubscriptionUrl: "Копировать URL подписки",
+    copyYaml: "Копировать YAML",
+    mieruNote: "Mieru server работает через mita. В iOS Clash/mihomo вставляйте URL подписки, не сырой YAML. Client JSON для mieru app.",
     copyConfig: "Копировать конфиг",
     savedKey: "ключ сохранён",
     siteMaskEyebrow: "Публичный сайт",
@@ -1485,6 +1493,8 @@ function renderMieruSettings(payload = null) {
   const noteEl = $("#mieruRuntimeNote");
   const clientEl = $("#mieruClientConfig");
   const yamlEl = $("#mieruMihomoYaml");
+  const subUrlEl = $("#mieruSubscriptionUrl");
+  const clashUrlEl = $("#mieruClashImportUrl");
   if (!portEl || !protocolEl || !userEl || !passwordEl || !statusEl || !noteEl) return;
   if (document.activeElement !== portEl) portEl.value = cfg.port || 2999;
   if (document.activeElement !== protocolEl) protocolEl.value = cfg.protocol || "TCP";
@@ -1505,6 +1515,12 @@ function renderMieruSettings(payload = null) {
   }
   if (yamlEl && document.activeElement !== yamlEl) {
     yamlEl.value = cfg.mihomo_yaml || "";
+  }
+  if (subUrlEl && document.activeElement !== subUrlEl) {
+    subUrlEl.value = cfg.subscription_url || "";
+  }
+  if (clashUrlEl && document.activeElement !== clashUrlEl) {
+    clashUrlEl.value = cfg.clash_import_url || "";
   }
 }
 
@@ -2353,7 +2369,8 @@ $("#mieruSettingsForm").addEventListener("submit", saveMieruSettings);
 $("#mieruStartBtn").addEventListener("click", () => controlMieru("start"));
 $("#mieruRestartBtn").addEventListener("click", () => controlMieru("restart"));
 $("#mieruStopBtn").addEventListener("click", () => controlMieru("stop"));
-$("#mieruCopyBtn").addEventListener("click", () => copyText($("#mieruClientConfig").value || $("#mieruMihomoYaml").value || ""));
+$("#mieruCopyUrlBtn").addEventListener("click", () => copyText($("#mieruSubscriptionUrl").value || ""));
+$("#mieruCopyYamlBtn").addEventListener("click", () => copyText($("#mieruMihomoYaml").value || ""));
 $("#siteMaskForm").addEventListener("submit", saveSiteMask);
 $("#siteMaskRemoveBtn").addEventListener("click", removeSiteMask);
 $("#siteMaskUploadBtn").addEventListener("click", uploadSiteMaskHtml);

@@ -502,6 +502,18 @@
                   <button id="mieruStopBtn" class="danger" type="button" data-i18n="mieruStop">Stop</button>
                 </div>
                 <label>
+                  <span data-i18n="mieruSubscriptionUrl">mihomo subscription URL</span>
+                  <input id="mieruSubscriptionUrl" readonly spellcheck="false">
+                </label>
+                <label>
+                  <span data-i18n="mieruClashImportUrl">Clash import URL</span>
+                  <input id="mieruClashImportUrl" readonly spellcheck="false">
+                </label>
+                <div class="inline-form">
+                  <button id="mieruCopyUrlBtn" class="soft" type="button" data-i18n="copySubscriptionUrl">Copy subscription URL</button>
+                  <button id="mieruCopyYamlBtn" class="soft" type="button" data-i18n="copyYaml">Copy YAML</button>
+                </div>
+                <label>
                   <span data-i18n="mieruClientConfig">Client JSON</span>
                   <textarea id="mieruClientConfig" rows="8" readonly spellcheck="false"></textarea>
                 </label>
@@ -509,7 +521,6 @@
                   <span data-i18n="mieruMihomoYaml">mihomo YAML</span>
                   <textarea id="mieruMihomoYaml" rows="8" readonly spellcheck="false"></textarea>
                 </label>
-                <button id="mieruCopyBtn" class="soft" type="button" data-i18n="copyConfig">Copy config</button>
               </form>
             </section>
 
